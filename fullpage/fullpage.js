@@ -531,6 +531,77 @@ async function toggleFolder(folderId) {
 // Drag and Drop
 // ============================================
 function setupDragAndDrop() {
+  // Track last drop target to prevent flickering and ensure drop accuracy
+  let lastDropTarget = null;
+  
+  /**
+   * Find a valid drop target near the given coordinates
+   * @param {number} x - Client X coordinate
+   * @param {number} y - Client Y coordinate
+   * @param {string} excludeId - ID to exclude (the dragged item)
+   * @returns {Element|null} - Valid drop target or null
+   */
+  function findNearbyDropTarget(x, y, excludeId) {
+    // Search offsets: center, then expanding circle
+    const searchOffsets = [
+      [0, 0],
+      [0, -12], [0, 12], [-12, 0], [12, 0],
+      [-12, -12], [12, -12], [-12, 12], [12, 12],
+      [0, -24], [0, 24], [-24, 0], [24, 0],
+      [-24, -24], [24, -24], [-24, 24], [24, 24]
+    ];
+    
+    for (const [dx, dy] of searchOffsets) {
+      const el = document.elementFromPoint(x + dx, y + dy);
+      if (!el) continue;
+      
+      // Check for folder item or tree item
+      const target = el.closest('.content-item[data-is-folder="true"], .tree-item');
+      if (target && target.dataset.id !== excludeId) {
+        return target;
+      }
+    }
+    return null;
+  }
+  
+  /**
+   * Get target ID from various sources with fallback strategy
+   * @param {DragEvent} e - The drop event
+   * @param {Element|null} lastTarget - Last tracked drop target
+   * @param {string} excludeId - ID to exclude
+   * @returns {string|null} - Target folder ID or null
+   */
+  function resolveDropTarget(e, lastTarget, excludeId) {
+    // Strategy 1: Use lastDropTarget (visually highlighted - highest reliability)
+    if (lastTarget?.dataset?.id && lastTarget.dataset.id !== excludeId) {
+      return { id: lastTarget.dataset.id, type: 'folder' };
+    }
+    
+    // Strategy 2: Direct DOM traversal
+    const directTarget = e.target.closest('.content-item[data-is-folder="true"], .tree-item');
+    if (directTarget?.dataset?.id && directTarget.dataset.id !== excludeId) {
+      return { id: directTarget.dataset.id, type: 'folder' };
+    }
+    
+    // Strategy 3: Search nearby elements
+    const nearbyTarget = findNearbyDropTarget(e.clientX, e.clientY, excludeId);
+    if (nearbyTarget?.dataset?.id) {
+      return { id: nearbyTarget.dataset.id, type: 'folder' };
+    }
+    
+    // Strategy 4: Drop on pane content (move to current folder)
+    const paneContent = e.target.closest('.pane-content');
+    if (paneContent) {
+      const paneNum = parseInt(paneContent.dataset.pane);
+      const currentFolderId = state.panes[paneNum]?.currentFolderId;
+      if (currentFolderId && currentFolderId !== excludeId) {
+        return { id: currentFolderId, type: 'pane' };
+      }
+    }
+    
+    return null;
+  }
+  
   document.addEventListener('dragstart', (e) => {
     const item = e.target.closest('.content-item, .tree-item');
     if (!item) return;
@@ -543,6 +614,8 @@ function setupDragAndDrop() {
     item.classList.add('dragging');
     e.dataTransfer.effectAllowed = 'move';
     e.dataTransfer.setData('text/plain', item.dataset.id);
+    
+    document.body.classList.add('dragging-active');
   });
   
   document.addEventListener('dragend', () => {
@@ -550,27 +623,66 @@ function setupDragAndDrop() {
       el.classList.remove('dragging', 'drag-over');
     });
     state.draggedItem = null;
+    lastDropTarget = null;
+    document.body.classList.remove('dragging-active');
   });
   
   document.addEventListener('dragover', (e) => {
-    const target = e.target.closest('.content-item[data-is-folder="true"], .tree-item, .pane-content');
+    if (!state.draggedItem) return;
     
-    if (target && state.draggedItem) {
-      // Prevent dropping on itself
-      if (target.dataset?.id === state.draggedItem.id) return;
-      
-      e.preventDefault();
-      e.dataTransfer.dropEffect = 'move';
-      
-      document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
-      target.classList.add('drag-over');
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    
+    // Find valid drop target
+    let target = e.target.closest('.content-item[data-is-folder="true"], .tree-item');
+    
+    // If not found directly, search nearby
+    if (!target) {
+      target = findNearbyDropTarget(e.clientX, e.clientY, state.draggedItem.id);
+    }
+    
+    // Also allow pane-content as drop zone
+    const paneContent = !target ? e.target.closest('.pane-content') : null;
+    
+    if (target && target.dataset?.id !== state.draggedItem.id) {
+      if (lastDropTarget !== target) {
+        if (lastDropTarget) {
+          lastDropTarget.classList.remove('drag-over');
+        }
+        target.classList.add('drag-over');
+        lastDropTarget = target;
+      }
+    } else if (paneContent) {
+      if (lastDropTarget !== paneContent) {
+        if (lastDropTarget) {
+          lastDropTarget.classList.remove('drag-over');
+        }
+        paneContent.classList.add('drag-over');
+        lastDropTarget = paneContent;
+      }
+    } else if (lastDropTarget) {
+      lastDropTarget.classList.remove('drag-over');
+      lastDropTarget = null;
     }
   });
   
   document.addEventListener('dragleave', (e) => {
     const target = e.target.closest('.content-item, .tree-item, .pane-content');
-    if (target) {
-      target.classList.remove('drag-over');
+    if (!target) return;
+    
+    const relatedTarget = e.relatedTarget;
+    if (relatedTarget && target.contains(relatedTarget)) {
+      return;
+    }
+    
+    const newTarget = relatedTarget?.closest('.content-item[data-is-folder="true"], .tree-item, .pane-content');
+    if (newTarget && newTarget !== target) {
+      return;
+    }
+    
+    target.classList.remove('drag-over');
+    if (lastDropTarget === target) {
+      lastDropTarget = null;
     }
   });
   
@@ -579,34 +691,37 @@ function setupDragAndDrop() {
 
     if (!state.draggedItem) return;
 
-    let targetId;
-    const target = e.target.closest('.content-item[data-is-folder="true"], .tree-item');
-    const paneContent = e.target.closest('.pane-content');
+    // CRITICAL: Capture draggedItem immediately to prevent race condition
+    // dragend event may fire during async operations and set state.draggedItem = null
+    const draggedItemId = state.draggedItem.id;
+    const currentLastDropTarget = lastDropTarget;
 
-    if (target) {
-      targetId = target.dataset.id;
-    } else if (paneContent) {
-      // Dropped in pane content area - move to current folder
-      const paneNum = parseInt(paneContent.dataset.pane);
-      targetId = state.panes[paneNum].currentFolderId;
-    } else {
+    // Use multi-fallback strategy to resolve drop target
+    const resolved = resolveDropTarget(e, currentLastDropTarget, draggedItemId);
+
+    if (!resolved) {
+      // No valid target - clean up and exit
+      document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+      state.draggedItem = null;
+      lastDropTarget = null;
+      document.body.classList.remove('dragging-active');
       return;
     }
 
-    if (targetId === state.draggedItem.id) return;
+    const targetId = resolved.id;
 
     try {
       // Capture original position before move for undo
-      const [originalNode] = await chrome.bookmarks.get(state.draggedItem.id);
+      const [originalNode] = await chrome.bookmarks.get(draggedItemId);
       const originalParentId = originalNode.parentId;
       const originalIndex = originalNode.index;
 
-      await chrome.bookmarks.move(state.draggedItem.id, { parentId: targetId });
+      await chrome.bookmarks.move(draggedItemId, { parentId: targetId });
 
       // Push undo action
       pushUndoAction({
         type: 'move',
-        itemId: state.draggedItem.id,
+        itemId: draggedItemId,
         originalParentId: originalParentId,
         originalIndex: originalIndex
       });
@@ -626,6 +741,8 @@ function setupDragAndDrop() {
 
     document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
     state.draggedItem = null;
+    lastDropTarget = null;
+    document.body.classList.remove('dragging-active');
   });
 }
 

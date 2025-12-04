@@ -382,6 +382,37 @@ function clearSelection() {
 // Drag and Drop
 // ============================================
 function setupDragAndDrop() {
+  // Track last drop target to prevent flickering and ensure drop accuracy
+  let lastDropTarget = null;
+  
+  /**
+   * Find a valid drop target near the given coordinates
+   * @param {number} x - Client X coordinate
+   * @param {number} y - Client Y coordinate
+   * @param {string} excludeId - ID to exclude (the dragged item)
+   * @returns {Element|null} - Valid drop target or null
+   */
+  function findNearbyDropTarget(x, y, excludeId) {
+    // Search offsets: center, then expanding circle
+    const searchOffsets = [
+      [0, 0],
+      [0, -12], [0, 12], [-12, 0], [12, 0],
+      [-12, -12], [12, -12], [-12, 12], [12, 12],
+      [0, -24], [0, 24], [-24, 0], [24, 0]
+    ];
+    
+    for (const [dx, dy] of searchOffsets) {
+      const el = document.elementFromPoint(x + dx, y + dy);
+      if (!el) continue;
+      
+      const target = el.closest('.content-item[data-is-folder="true"], .tree-item');
+      if (target && target.dataset.id !== excludeId) {
+        return target;
+      }
+    }
+    return null;
+  }
+  
   // Drag start
   document.addEventListener('dragstart', (e) => {
     const item = e.target.closest('.content-item, .tree-item');
@@ -391,59 +422,127 @@ function setupDragAndDrop() {
     item.classList.add('dragging');
     e.dataTransfer.effectAllowed = 'move';
     e.dataTransfer.setData('text/plain', item.dataset.id);
+    
+    // Add dragging-active class to body for CSS pointer-events control
+    document.body.classList.add('dragging-active');
   });
   
   // Drag end
-  document.addEventListener('dragend', (e) => {
+  document.addEventListener('dragend', () => {
     document.querySelectorAll('.dragging, .drag-over').forEach(el => {
       el.classList.remove('dragging', 'drag-over');
     });
     state.draggedItem = null;
+    lastDropTarget = null;
+    document.body.classList.remove('dragging-active');
   });
   
-  // Drag over
+  // Drag over - track the current drop target
   document.addEventListener('dragover', (e) => {
-    const target = e.target.closest('.content-item[data-is-folder="true"], .tree-item');
+    if (!state.draggedItem) return;
+    
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    
+    // Find valid drop target
+    let target = e.target.closest('.content-item[data-is-folder="true"], .tree-item');
+    
+    // If not found directly, search nearby
+    if (!target) {
+      target = findNearbyDropTarget(e.clientX, e.clientY, state.draggedItem);
+    }
+    
     if (target && target.dataset.id !== state.draggedItem) {
-      e.preventDefault();
-      e.dataTransfer.dropEffect = 'move';
-      
-      // Clear previous drag-over states
-      document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
-      target.classList.add('drag-over');
+      // Only update classes if target changed
+      if (lastDropTarget !== target) {
+        if (lastDropTarget) {
+          lastDropTarget.classList.remove('drag-over');
+        }
+        target.classList.add('drag-over');
+        lastDropTarget = target;
+      }
+    } else if (!target && lastDropTarget) {
+      lastDropTarget.classList.remove('drag-over');
+      lastDropTarget = null;
     }
   });
   
-  // Drag leave
+  // Drag leave - improved with relatedTarget check
   document.addEventListener('dragleave', (e) => {
     const target = e.target.closest('.content-item, .tree-item');
-    if (target) {
-      target.classList.remove('drag-over');
+    if (!target) return;
+    
+    const relatedTarget = e.relatedTarget;
+    if (relatedTarget && target.contains(relatedTarget)) {
+      return;
+    }
+    
+    const newTarget = relatedTarget?.closest('.content-item[data-is-folder="true"], .tree-item');
+    if (newTarget && newTarget !== target) {
+      return;
+    }
+    
+    target.classList.remove('drag-over');
+    if (lastDropTarget === target) {
+      lastDropTarget = null;
     }
   });
   
-  // Drop
+  // Drop - multi-fallback strategy for maximum success rate
   document.addEventListener('drop', async (e) => {
     e.preventDefault();
+    if (!state.draggedItem) return;
 
-    const target = e.target.closest('.content-item[data-is-folder="true"], .tree-item');
-    if (!target || !state.draggedItem) return;
+    // CRITICAL: Capture draggedItem immediately to prevent race condition
+    // dragend event may fire during async operations and set state.draggedItem = null
+    const draggedItemId = state.draggedItem;
+    const currentLastDropTarget = lastDropTarget;
 
-    const targetId = target.dataset.id;
-    if (targetId === state.draggedItem) return;
+    let targetId = null;
+
+    // Strategy 1: Use lastDropTarget (visually highlighted element - highest reliability)
+    if (currentLastDropTarget && currentLastDropTarget.dataset?.id) {
+      targetId = currentLastDropTarget.dataset.id;
+    }
+
+    // Strategy 2: Direct DOM traversal from e.target
+    if (!targetId) {
+      const target = e.target.closest('.content-item[data-is-folder="true"], .tree-item');
+      if (target) {
+        targetId = target.dataset.id;
+      }
+    }
+
+    // Strategy 3: Search nearby elements using elementFromPoint
+    if (!targetId) {
+      const nearbyTarget = findNearbyDropTarget(e.clientX, e.clientY, draggedItemId);
+      if (nearbyTarget) {
+        targetId = nearbyTarget.dataset.id;
+      }
+    }
+
+    // No valid target found
+    if (!targetId || targetId === draggedItemId) {
+      // Clean up and exit
+      document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+      state.draggedItem = null;
+      lastDropTarget = null;
+      document.body.classList.remove('dragging-active');
+      return;
+    }
 
     try {
       // Capture original position before move for undo
-      const [originalNode] = await chrome.bookmarks.get(state.draggedItem);
+      const [originalNode] = await chrome.bookmarks.get(draggedItemId);
       const originalParentId = originalNode.parentId;
       const originalIndex = originalNode.index;
 
-      await chrome.bookmarks.move(state.draggedItem, { parentId: targetId });
+      await chrome.bookmarks.move(draggedItemId, { parentId: targetId });
 
       // Push undo action
       pushUndoAction({
         type: 'move',
-        itemId: state.draggedItem,
+        itemId: draggedItemId,
         originalParentId: originalParentId,
         originalIndex: originalIndex
       });
@@ -457,6 +556,8 @@ function setupDragAndDrop() {
 
     document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
     state.draggedItem = null;
+    lastDropTarget = null;
+    document.body.classList.remove('dragging-active');
   });
 }
 

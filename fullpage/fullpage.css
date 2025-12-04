@@ -558,6 +558,61 @@ body {
   transform: scale(0.95);
 }
 
+/* ============================================
+   Drag & Drop Enhancements
+   ============================================ */
+/* During drag, disable pointer events on child elements to prevent dragleave bubbling */
+body.dragging-active .content-item-icon,
+body.dragging-active .content-item-label,
+body.dragging-active .content-item-favicon,
+body.dragging-active .content-item-favicon img,
+body.dragging-active .tree-icon,
+body.dragging-active .tree-label,
+body.dragging-active .tree-toggle {
+  pointer-events: none;
+}
+
+/* Expand drop zone during drag - make folder items larger targets */
+body.dragging-active .content-item[data-is-folder="true"] {
+  padding: 18px 14px;
+  margin: 4px;
+  position: relative;
+}
+
+body.dragging-active .tree-item {
+  padding: 10px 14px;
+  margin: 2px 0;
+  position: relative;
+}
+
+/* Visual hint for valid drop targets during drag */
+body.dragging-active .content-item[data-is-folder="true"]:not(.dragging) {
+  background: rgba(0, 120, 212, 0.05);
+  border-radius: var(--border-radius-sm);
+  transition: all 0.15s ease;
+}
+
+body.dragging-active .tree-item:not(.dragging) {
+  background: rgba(0, 120, 212, 0.03);
+  transition: all 0.15s ease;
+}
+
+/* Enhanced drag-over feedback - more prominent */
+.content-item.drag-over,
+.tree-item.drag-over {
+  z-index: 10;
+  background: rgba(0, 120, 212, 0.35) !important;
+  transform: scale(1.02);
+  box-shadow: 0 0 0 2px var(--accent-blue), 0 4px 12px rgba(0, 120, 212, 0.25);
+}
+
+/* Pane content drop zone feedback */
+.pane-content.drag-over {
+  background: rgba(0, 120, 212, 0.1);
+  outline: 3px dashed var(--accent-blue);
+  outline-offset: -6px;
+}
+
 .content-item.cut {
   opacity: 0.5;
 }
