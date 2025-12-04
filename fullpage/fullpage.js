@@ -27,8 +27,12 @@ const state = {
   expandedFolders: new Set(['0', '1', '2']),
   draggedItem: null,
   clipboard: null, // { action: 'cut'|'copy', id: string, sourcePane: number }
-  sidebarWidth: 260
+  sidebarWidth: 260,
+  undoStack: [] // Array of undo actions, max 50 items
 };
+
+// Maximum undo history size
+const MAX_UNDO_STACK_SIZE = 50;
 
 // ============================================
 // DOM Elements
@@ -375,7 +379,7 @@ function setupPaneNavigation() {
 
 async function handlePaneAction(paneNum, action) {
   const paneState = state.panes[paneNum];
-  
+
   switch (action) {
     case 'back':
       if (paneState.historyIndex > 0) {
@@ -383,14 +387,14 @@ async function handlePaneAction(paneNum, action) {
         await navigatePane(paneNum, paneState.history[paneState.historyIndex], false);
       }
       break;
-      
+
     case 'forward':
       if (paneState.historyIndex < paneState.history.length - 1) {
         paneState.historyIndex++;
         await navigatePane(paneNum, paneState.history[paneState.historyIndex], false);
       }
       break;
-      
+
     case 'up':
       if (paneState.currentFolderId !== '0') {
         const nodes = await chrome.bookmarks.get(paneState.currentFolderId);
@@ -399,16 +403,20 @@ async function handlePaneAction(paneNum, action) {
         }
       }
       break;
-      
+
     case 'refresh':
       await loadPaneContent(paneNum);
       showToast('Refreshed', 'success');
       break;
-      
+
+    case 'undo':
+      await performUndo();
+      break;
+
     case 'new-folder':
       showNewFolderDialog(paneNum);
       break;
-      
+
     case 'new-bookmark':
       showNewBookmarkDialog(paneNum);
       break;
@@ -568,13 +576,13 @@ function setupDragAndDrop() {
   
   document.addEventListener('drop', async (e) => {
     e.preventDefault();
-    
+
     if (!state.draggedItem) return;
-    
+
     let targetId;
     const target = e.target.closest('.content-item[data-is-folder="true"], .tree-item');
     const paneContent = e.target.closest('.pane-content');
-    
+
     if (target) {
       targetId = target.dataset.id;
     } else if (paneContent) {
@@ -584,13 +592,27 @@ function setupDragAndDrop() {
     } else {
       return;
     }
-    
+
     if (targetId === state.draggedItem.id) return;
-    
+
     try {
+      // Capture original position before move for undo
+      const [originalNode] = await chrome.bookmarks.get(state.draggedItem.id);
+      const originalParentId = originalNode.parentId;
+      const originalIndex = originalNode.index;
+
       await chrome.bookmarks.move(state.draggedItem.id, { parentId: targetId });
+
+      // Push undo action
+      pushUndoAction({
+        type: 'move',
+        itemId: state.draggedItem.id,
+        originalParentId: originalParentId,
+        originalIndex: originalIndex
+      });
+
       showToast('Item moved successfully', 'success');
-      
+
       // Refresh both panes
       await loadPaneContent(1);
       if (state.viewMode === 'split') {
@@ -601,7 +623,7 @@ function setupDragAndDrop() {
       showToast('Failed to move item', 'error');
       console.error('Move failed:', error);
     }
-    
+
     document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
     state.draggedItem = null;
   });
@@ -700,6 +722,10 @@ function hideContextMenu() {
 
 async function handleContextAction(action, targetId, paneNum) {
   switch (action) {
+    case 'undo':
+      await performUndo();
+      break;
+
     case 'open':
       if (targetId) {
         const item = document.querySelector(`.content-item[data-id="${targetId}"]`);
@@ -767,23 +793,32 @@ async function pasteItem(paneNum) {
   try {
     // Copy - get bookmark and create copy
     const [original] = await chrome.bookmarks.get(state.clipboard.id);
+    let created;
+
     if (original.url) {
-      await chrome.bookmarks.create({
+      created = await chrome.bookmarks.create({
         parentId: targetFolderId,
         title: original.title,
         url: original.url
       });
     } else {
       // Copy folder (shallow - just the folder itself)
-      await chrome.bookmarks.create({
+      created = await chrome.bookmarks.create({
         parentId: targetFolderId,
         title: original.title + ' (copy)'
       });
     }
+
+    // Push undo action
+    pushUndoAction({
+      type: 'paste',
+      createdId: created.id
+    });
+
     showToast('Item copied', 'success');
 
     state.clipboard = null;
-    
+
     await loadPaneContent(1);
     if (state.viewMode === 'split') {
       await loadPaneContent(2);
@@ -873,20 +908,38 @@ async function confirmRename() {
   const dialog = document.getElementById('rename-dialog');
   const id = dialog.dataset.targetId;
   const newTitle = document.getElementById('rename-input').value.trim();
-  
+
   if (!newTitle) return;
-  
+
   try {
+    // Capture original title before rename for undo
+    const [node] = await chrome.bookmarks.get(id);
+    const originalTitle = node.title;
+
+    // Skip if title unchanged
+    if (originalTitle === newTitle) {
+      hideDialog(dialog);
+      return;
+    }
+
     await chrome.bookmarks.update(id, { title: newTitle });
+
+    // Push undo action
+    pushUndoAction({
+      type: 'rename',
+      itemId: id,
+      originalTitle: originalTitle
+    });
+
     showToast('Renamed successfully', 'success');
-    
+
     await loadPaneContent(1);
     if (state.viewMode === 'split') await loadPaneContent(2);
     await loadFolderTree();
   } catch (error) {
     showToast('Failed to rename', 'error');
   }
-  
+
   hideDialog(dialog);
 }
 
@@ -904,22 +957,29 @@ async function confirmNewFolder() {
   const dialog = document.getElementById('new-folder-dialog');
   const paneNum = parseInt(dialog.dataset.pane);
   const title = document.getElementById('new-folder-input').value.trim();
-  
+
   if (!title) return;
-  
+
   try {
-    await chrome.bookmarks.create({
+    const created = await chrome.bookmarks.create({
       parentId: state.panes[paneNum].currentFolderId,
       title: title
     });
+
+    // Push undo action
+    pushUndoAction({
+      type: 'create',
+      createdId: created.id
+    });
+
     showToast('Folder created', 'success');
-    
+
     await loadPaneContent(paneNum);
     await loadFolderTree();
   } catch (error) {
     showToast('Failed to create folder', 'error');
   }
-  
+
   hideDialog(dialog);
 }
 
@@ -938,22 +998,29 @@ async function confirmNewBookmark() {
   const paneNum = parseInt(dialog.dataset.pane);
   const title = document.getElementById('new-bookmark-title').value.trim();
   const url = document.getElementById('new-bookmark-url').value.trim();
-  
+
   if (!title || !url) return;
-  
+
   try {
-    await chrome.bookmarks.create({
+    const created = await chrome.bookmarks.create({
       parentId: state.panes[paneNum].currentFolderId,
       title: title,
       url: url
     });
+
+    // Push undo action
+    pushUndoAction({
+      type: 'create',
+      createdId: created.id
+    });
+
     showToast('Bookmark created', 'success');
-    
+
     await loadPaneContent(paneNum);
   } catch (error) {
     showToast('Failed to create bookmark', 'error');
   }
-  
+
   hideDialog(dialog);
 }
 
@@ -961,22 +1028,36 @@ async function confirmNewBookmark() {
 async function deleteItem(id) {
   const [node] = await chrome.bookmarks.get(id);
   if (!node) return;
-  
+
   const isFolder = !node.url;
   const message = isFolder
     ? `Delete folder "${node.title}" and all its contents?`
     : `Delete bookmark "${node.title}"?`;
-  
+
   if (!confirm(message)) return;
-  
+
   try {
+    // Capture full data before deletion for undo
+    const fullData = await captureBookmarkTree(id);
+    const parentId = node.parentId;
+    const index = node.index;
+
     if (isFolder) {
       await chrome.bookmarks.removeTree(id);
     } else {
       await chrome.bookmarks.remove(id);
     }
+
+    // Push undo action
+    pushUndoAction({
+      type: 'delete',
+      data: fullData,
+      parentId: parentId,
+      index: index
+    });
+
     showToast('Deleted successfully', 'success');
-    
+
     await loadPaneContent(1);
     if (state.viewMode === 'split') await loadPaneContent(2);
     await loadFolderTree();
@@ -1038,45 +1119,52 @@ function setupKeyboardShortcuts() {
   document.addEventListener('keydown', (e) => {
     // Ignore if typing in input
     if (e.target.matches('input')) return;
-    
+
     const paneNum = state.activePane;
     const paneState = state.panes[paneNum];
-    
+
+    // Ctrl+Z / Cmd+Z - Undo
+    if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+      e.preventDefault();
+      performUndo();
+      return;
+    }
+
     // Delete
     if (e.key === 'Delete' && paneState.selectedItems.size > 0) {
       const firstSelected = paneState.selectedItems.values().next().value;
       deleteItem(firstSelected);
     }
-    
+
     // F2 Rename
     if (e.key === 'F2' && paneState.selectedItems.size === 1) {
       const firstSelected = paneState.selectedItems.values().next().value;
       showRenameDialog(firstSelected);
     }
-    
+
     // Backspace - go up
     if (e.key === 'Backspace') {
       e.preventDefault();
       handlePaneAction(paneNum, 'up');
     }
-    
+
     // Escape
     if (e.key === 'Escape') {
       hideContextMenu();
       hideAllDialogs();
     }
-    
+
     // Ctrl+C Copy
     if ((e.ctrlKey || e.metaKey) && e.key === 'c' && paneState.selectedItems.size === 1) {
       const firstSelected = paneState.selectedItems.values().next().value;
       handleContextAction('copy', firstSelected, paneNum);
     }
-    
+
     // Ctrl+V Paste
     if ((e.ctrlKey || e.metaKey) && e.key === 'v' && state.clipboard) {
       pasteItem(paneNum);
     }
-    
+
     // Tab - switch panes in split mode
     if (e.key === 'Tab' && state.viewMode === 'split') {
       e.preventDefault();
@@ -1179,6 +1267,163 @@ function showToast(message, type = 'info') {
     toast.style.animation = 'toastSlideIn 0.3s ease reverse';
     setTimeout(() => toast.remove(), 300);
   }, 3000);
+}
+
+// ============================================
+// Undo System
+// ============================================
+
+/**
+ * Captures the full bookmark tree recursively for undo restore.
+ * @param {string} id - Bookmark/folder ID
+ * @returns {Promise<Object>} Full bookmark tree data
+ */
+async function captureBookmarkTree(id) {
+  const [subtree] = await chrome.bookmarks.getSubTree(id);
+  return subtree;
+}
+
+/**
+ * Restores a bookmark tree recursively.
+ * @param {Object} node - Bookmark tree node to restore
+ * @param {string} parentId - Parent folder ID
+ * @param {number} index - Position index
+ * @returns {Promise<Object>} Created bookmark
+ */
+async function restoreBookmarkTree(node, parentId, index) {
+  const createData = {
+    parentId,
+    title: node.title,
+    index
+  };
+
+  // Only add URL for bookmarks (not folders)
+  if (node.url) {
+    createData.url = node.url;
+  }
+
+  const created = await chrome.bookmarks.create(createData);
+
+  // If folder with children, restore children recursively
+  if (node.children && node.children.length > 0) {
+    for (let i = 0; i < node.children.length; i++) {
+      await restoreBookmarkTree(node.children[i], created.id, i);
+    }
+  }
+
+  return created;
+}
+
+/**
+ * Pushes an undo action to the stack.
+ * @param {Object} action - Undo action data
+ */
+function pushUndoAction(action) {
+  state.undoStack.push({
+    ...action,
+    timestamp: Date.now()
+  });
+
+  // Limit stack size
+  if (state.undoStack.length > MAX_UNDO_STACK_SIZE) {
+    state.undoStack.shift();
+  }
+
+  updateUndoButtons();
+}
+
+/**
+ * Updates the disabled state of all undo buttons.
+ */
+function updateUndoButtons() {
+  const hasUndoActions = state.undoStack.length > 0;
+  document.querySelectorAll('[data-action="undo"]').forEach(btn => {
+    btn.disabled = !hasUndoActions;
+    if (btn.classList.contains('context-menu-item')) {
+      btn.classList.toggle('disabled', !hasUndoActions);
+    }
+  });
+}
+
+/**
+ * Performs the undo operation for the most recent action.
+ */
+async function performUndo() {
+  if (state.undoStack.length === 0) {
+    showToast('Nothing to undo', 'info');
+    return;
+  }
+
+  const action = state.undoStack.pop();
+  updateUndoButtons();
+
+  try {
+    switch (action.type) {
+      case 'delete':
+        // Restore deleted bookmark/folder
+        await restoreBookmarkTree(action.data, action.parentId, action.index);
+        showToast(`Restored "${action.data.title}"`, 'success');
+        break;
+
+      case 'move':
+        // Move item back to original location
+        await chrome.bookmarks.move(action.itemId, {
+          parentId: action.originalParentId,
+          index: action.originalIndex
+        });
+        showToast('Move undone', 'success');
+        break;
+
+      case 'rename':
+        // Restore original title
+        await chrome.bookmarks.update(action.itemId, {
+          title: action.originalTitle
+        });
+        showToast('Rename undone', 'success');
+        break;
+
+      case 'create':
+        // Delete the created item
+        const [node] = await chrome.bookmarks.get(action.createdId);
+        if (node) {
+          if (node.url) {
+            await chrome.bookmarks.remove(action.createdId);
+          } else {
+            await chrome.bookmarks.removeTree(action.createdId);
+          }
+        }
+        showToast('Creation undone', 'success');
+        break;
+
+      case 'paste':
+        // Delete the pasted item
+        const [pastedNode] = await chrome.bookmarks.get(action.createdId);
+        if (pastedNode) {
+          if (pastedNode.url) {
+            await chrome.bookmarks.remove(action.createdId);
+          } else {
+            await chrome.bookmarks.removeTree(action.createdId);
+          }
+        }
+        showToast('Paste undone', 'success');
+        break;
+
+      default:
+        showToast('Unknown action type', 'error');
+        return;
+    }
+
+    // Refresh UI
+    await loadPaneContent(1);
+    if (state.viewMode === 'split') {
+      await loadPaneContent(2);
+    }
+    await loadFolderTree();
+
+  } catch (error) {
+    console.error('Undo failed:', error);
+    showToast('Undo failed: ' + error.message, 'error');
+  }
 }
 
 // ============================================

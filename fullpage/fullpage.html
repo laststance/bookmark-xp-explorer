@@ -53,6 +53,7 @@
               <button class="pane-btn" data-action="forward" title="Forward">▶</button>
               <button class="pane-btn" data-action="up" title="Up">⬆</button>
               <button class="pane-btn" data-action="refresh" title="Refresh">🔄</button>
+              <button class="pane-btn" data-action="undo" title="Undo (Ctrl+Z)" disabled>↩️</button>
             </div>
             <div class="pane-address">
               <span class="address-icon">📁</span>
@@ -84,6 +85,7 @@
               <button class="pane-btn" data-action="forward" title="Forward">▶</button>
               <button class="pane-btn" data-action="up" title="Up">⬆</button>
               <button class="pane-btn" data-action="refresh" title="Refresh">🔄</button>
+              <button class="pane-btn" data-action="undo" title="Undo (Ctrl+Z)" disabled>↩️</button>
             </div>
             <div class="pane-address">
               <span class="address-icon">📁</span>
@@ -109,6 +111,11 @@
 
   <!-- Context Menu -->
   <div class="context-menu" id="context-menu">
+    <div class="context-menu-item" data-action="undo">
+      <span class="menu-icon">↩️</span> Undo
+      <span class="menu-shortcut">Ctrl+Z</span>
+    </div>
+    <div class="context-menu-separator"></div>
     <div class="context-menu-item" data-action="open">
       <span class="menu-icon">🔗</span> Open
     </div>

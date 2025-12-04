@@ -13,8 +13,12 @@ const state = {
   historyIndex: 0,
   draggedItem: null,
   expandedFolders: new Set(['0', '1', '2']),
-  searchMode: false
+  searchMode: false,
+  undoStack: [] // Array of undo actions, max 50 items
 };
+
+// Maximum undo history size
+const MAX_UNDO_STACK_SIZE = 50;
 
 // ============================================
 // DOM Elements
@@ -42,7 +46,8 @@ const elements = {
   btnForward: document.getElementById('btn-forward'),
   btnUp: document.getElementById('btn-up'),
   btnNewFolder: document.getElementById('btn-new-folder'),
-  btnRefresh: document.getElementById('btn-refresh')
+  btnRefresh: document.getElementById('btn-refresh'),
+  btnUndo: document.getElementById('btn-undo')
 };
 
 // ============================================
@@ -279,6 +284,7 @@ function setupEventListeners() {
   elements.btnUp.addEventListener('click', goUp);
   elements.btnNewFolder.addEventListener('click', () => showNewFolderDialog());
   elements.btnRefresh.addEventListener('click', refresh);
+  elements.btnUndo.addEventListener('click', performUndo);
   
   // Folder tree clicks
   elements.folderTree.addEventListener('click', async (e) => {
@@ -328,22 +334,29 @@ function setupEventListeners() {
 }
 
 function handleKeyboard(e) {
+  // Ctrl+Z / Cmd+Z - Undo
+  if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+    e.preventDefault();
+    performUndo();
+    return;
+  }
+
   // Delete key
   if (e.key === 'Delete' && state.selectedItem) {
     deleteItem(state.selectedItem);
   }
-  
+
   // F2 for rename
   if (e.key === 'F2' && state.selectedItem) {
     showRenameDialog(state.selectedItem);
   }
-  
+
   // Backspace to go up
   if (e.key === 'Backspace' && !e.target.matches('input')) {
     e.preventDefault();
     goUp();
   }
-  
+
   // Escape to close menus
   if (e.key === 'Escape') {
     hideContextMenu();
@@ -412,22 +425,36 @@ function setupDragAndDrop() {
   // Drop
   document.addEventListener('drop', async (e) => {
     e.preventDefault();
-    
+
     const target = e.target.closest('.content-item[data-is-folder="true"], .tree-item');
     if (!target || !state.draggedItem) return;
-    
+
     const targetId = target.dataset.id;
     if (targetId === state.draggedItem) return;
-    
+
     try {
+      // Capture original position before move for undo
+      const [originalNode] = await chrome.bookmarks.get(state.draggedItem);
+      const originalParentId = originalNode.parentId;
+      const originalIndex = originalNode.index;
+
       await chrome.bookmarks.move(state.draggedItem, { parentId: targetId });
+
+      // Push undo action
+      pushUndoAction({
+        type: 'move',
+        itemId: state.draggedItem,
+        originalParentId: originalParentId,
+        originalIndex: originalIndex
+      });
+
       elements.statusText.textContent = 'Item moved successfully';
       await refresh();
     } catch (error) {
       elements.statusText.textContent = 'Failed to move item';
       console.error('Move failed:', error);
     }
-    
+
     document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
     state.draggedItem = null;
   });
@@ -453,14 +480,18 @@ function setupContextMenu() {
   // Context menu actions
   elements.contextMenu.addEventListener('click', async (e) => {
     const menuItem = e.target.closest('.context-menu-item');
-    if (!menuItem) return;
-    
+    if (!menuItem || menuItem.classList.contains('disabled')) return;
+
     const action = menuItem.dataset.action;
     const targetId = elements.contextMenu.dataset.targetId;
-    
+
     hideContextMenu();
-    
+
     switch (action) {
+      case 'undo':
+        await performUndo();
+        break;
+
       case 'open':
         if (targetId) {
           const item = document.querySelector(`.content-item[data-id="${targetId}"]`);
@@ -471,7 +502,7 @@ function setupContextMenu() {
           }
         }
         break;
-        
+
       case 'open-new-tab':
         if (targetId) {
           const item = document.querySelector(`.content-item[data-id="${targetId}"]`);
@@ -480,19 +511,19 @@ function setupContextMenu() {
           }
         }
         break;
-        
+
       case 'rename':
         if (targetId) showRenameDialog(targetId);
         break;
-        
+
       case 'delete':
         if (targetId) deleteItem(targetId);
         break;
-        
+
       case 'new-folder':
         showNewFolderDialog();
         break;
-        
+
       case 'new-bookmark':
         showNewBookmarkDialog();
         break;
@@ -604,17 +635,35 @@ async function showRenameDialog(id) {
 async function confirmRename() {
   const id = elements.renameDialog.dataset.targetId;
   const newTitle = elements.renameInput.value.trim();
-  
+
   if (!newTitle) return;
-  
+
   try {
+    // Capture original title before rename for undo
+    const [node] = await chrome.bookmarks.get(id);
+    const originalTitle = node.title;
+
+    // Skip if title unchanged
+    if (originalTitle === newTitle) {
+      hideDialog(elements.renameDialog);
+      return;
+    }
+
     await chrome.bookmarks.update(id, { title: newTitle });
+
+    // Push undo action
+    pushUndoAction({
+      type: 'rename',
+      itemId: id,
+      originalTitle: originalTitle
+    });
+
     elements.statusText.textContent = 'Renamed successfully';
     await refresh();
   } catch (error) {
     elements.statusText.textContent = 'Failed to rename';
   }
-  
+
   hideDialog(elements.renameDialog);
 }
 
@@ -627,18 +676,25 @@ function showNewFolderDialog() {
 async function confirmNewFolder() {
   const title = elements.newFolderInput.value.trim();
   if (!title) return;
-  
+
   try {
-    await chrome.bookmarks.create({
+    const created = await chrome.bookmarks.create({
       parentId: state.currentFolderId,
       title: title
     });
+
+    // Push undo action
+    pushUndoAction({
+      type: 'create',
+      createdId: created.id
+    });
+
     elements.statusText.textContent = 'Folder created';
     await refresh();
   } catch (error) {
     elements.statusText.textContent = 'Failed to create folder';
   }
-  
+
   hideDialog(elements.newFolderDialog);
 }
 
@@ -652,21 +708,28 @@ function showNewBookmarkDialog() {
 async function confirmNewBookmark() {
   const title = elements.newBookmarkTitle.value.trim();
   const url = elements.newBookmarkUrl.value.trim();
-  
+
   if (!title || !url) return;
-  
+
   try {
-    await chrome.bookmarks.create({
+    const created = await chrome.bookmarks.create({
       parentId: state.currentFolderId,
       title: title,
       url: url
     });
+
+    // Push undo action
+    pushUndoAction({
+      type: 'create',
+      createdId: created.id
+    });
+
     elements.statusText.textContent = 'Bookmark created';
     await refresh();
   } catch (error) {
     elements.statusText.textContent = 'Failed to create bookmark';
   }
-  
+
   hideDialog(elements.newBookmarkDialog);
 }
 
@@ -674,20 +737,35 @@ async function confirmNewBookmark() {
 async function deleteItem(id) {
   const nodes = await chrome.bookmarks.get(id);
   if (nodes.length === 0) return;
-  
-  const isFolder = !nodes[0].url;
-  const message = isFolder 
-    ? `Delete folder "${nodes[0].title}" and all its contents?`
-    : `Delete bookmark "${nodes[0].title}"?`;
-  
+
+  const node = nodes[0];
+  const isFolder = !node.url;
+  const message = isFolder
+    ? `Delete folder "${node.title}" and all its contents?`
+    : `Delete bookmark "${node.title}"?`;
+
   if (!confirm(message)) return;
-  
+
   try {
+    // Capture full data before deletion for undo
+    const fullData = await captureBookmarkTree(id);
+    const parentId = node.parentId;
+    const index = node.index;
+
     if (isFolder) {
       await chrome.bookmarks.removeTree(id);
     } else {
       await chrome.bookmarks.remove(id);
     }
+
+    // Push undo action
+    pushUndoAction({
+      type: 'delete',
+      data: fullData,
+      parentId: parentId,
+      index: index
+    });
+
     elements.statusText.textContent = 'Deleted successfully';
     state.selectedItem = null;
     await refresh();
@@ -798,6 +876,147 @@ async function refresh() {
   const treeItem = elements.folderTree.querySelector(`.tree-item[data-id="${state.currentFolderId}"]`);
   if (treeItem) {
     treeItem.classList.add('selected');
+  }
+}
+
+// ============================================
+// Undo System
+// ============================================
+
+/**
+ * Captures the full bookmark tree recursively for undo restore.
+ * @param {string} id - Bookmark/folder ID
+ * @returns {Promise<Object>} Full bookmark tree data
+ */
+async function captureBookmarkTree(id) {
+  const [subtree] = await chrome.bookmarks.getSubTree(id);
+  return subtree;
+}
+
+/**
+ * Restores a bookmark tree recursively.
+ * @param {Object} node - Bookmark tree node to restore
+ * @param {string} parentId - Parent folder ID
+ * @param {number} index - Position index
+ * @returns {Promise<Object>} Created bookmark
+ */
+async function restoreBookmarkTree(node, parentId, index) {
+  const createData = {
+    parentId,
+    title: node.title,
+    index
+  };
+
+  // Only add URL for bookmarks (not folders)
+  if (node.url) {
+    createData.url = node.url;
+  }
+
+  const created = await chrome.bookmarks.create(createData);
+
+  // If folder with children, restore children recursively
+  if (node.children && node.children.length > 0) {
+    for (let i = 0; i < node.children.length; i++) {
+      await restoreBookmarkTree(node.children[i], created.id, i);
+    }
+  }
+
+  return created;
+}
+
+/**
+ * Pushes an undo action to the stack.
+ * @param {Object} action - Undo action data
+ */
+function pushUndoAction(action) {
+  state.undoStack.push({
+    ...action,
+    timestamp: Date.now()
+  });
+
+  // Limit stack size
+  if (state.undoStack.length > MAX_UNDO_STACK_SIZE) {
+    state.undoStack.shift();
+  }
+
+  updateUndoButton();
+}
+
+/**
+ * Updates the disabled state of the undo button.
+ */
+function updateUndoButton() {
+  const hasUndoActions = state.undoStack.length > 0;
+  elements.btnUndo.disabled = !hasUndoActions;
+
+  // Also update context menu undo item if visible
+  const undoMenuItem = elements.contextMenu.querySelector('[data-action="undo"]');
+  if (undoMenuItem) {
+    undoMenuItem.classList.toggle('disabled', !hasUndoActions);
+  }
+}
+
+/**
+ * Performs the undo operation for the most recent action.
+ */
+async function performUndo() {
+  if (state.undoStack.length === 0) {
+    elements.statusText.textContent = 'Nothing to undo';
+    return;
+  }
+
+  const action = state.undoStack.pop();
+  updateUndoButton();
+
+  try {
+    switch (action.type) {
+      case 'delete':
+        // Restore deleted bookmark/folder
+        await restoreBookmarkTree(action.data, action.parentId, action.index);
+        elements.statusText.textContent = `Restored "${action.data.title}"`;
+        break;
+
+      case 'move':
+        // Move item back to original location
+        await chrome.bookmarks.move(action.itemId, {
+          parentId: action.originalParentId,
+          index: action.originalIndex
+        });
+        elements.statusText.textContent = 'Move undone';
+        break;
+
+      case 'rename':
+        // Restore original title
+        await chrome.bookmarks.update(action.itemId, {
+          title: action.originalTitle
+        });
+        elements.statusText.textContent = 'Rename undone';
+        break;
+
+      case 'create':
+        // Delete the created item
+        const [node] = await chrome.bookmarks.get(action.createdId);
+        if (node) {
+          if (node.url) {
+            await chrome.bookmarks.remove(action.createdId);
+          } else {
+            await chrome.bookmarks.removeTree(action.createdId);
+          }
+        }
+        elements.statusText.textContent = 'Creation undone';
+        break;
+
+      default:
+        elements.statusText.textContent = 'Unknown action type';
+        return;
+    }
+
+    // Refresh UI
+    await refresh();
+
+  } catch (error) {
+    console.error('Undo failed:', error);
+    elements.statusText.textContent = 'Undo failed';
   }
 }
 

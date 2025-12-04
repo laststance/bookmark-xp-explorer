@@ -37,6 +37,9 @@
       <button class="toolbar-btn" id="btn-refresh" title="Refresh">
         <span>🔄</span>
       </button>
+      <button class="toolbar-btn" id="btn-undo" title="Undo (Ctrl+Z)" disabled>
+        <span>↩️</span>
+      </button>
       <div class="toolbar-spacer"></div>
       <div class="search-box">
         <input type="text" id="search-input" placeholder="Search bookmarks...">
@@ -77,6 +80,11 @@
 
   <!-- Context Menu -->
   <div class="context-menu" id="context-menu">
+    <div class="context-menu-item" data-action="undo">
+      <span class="menu-icon">↩️</span> Undo
+      <span class="menu-shortcut">Ctrl+Z</span>
+    </div>
+    <div class="context-menu-separator"></div>
     <div class="context-menu-item" data-action="open">
       <span class="menu-icon">🔗</span> Open
     </div>

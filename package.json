@@ -1,0 +1,25 @@
+{
+  "name": "bookmark-xp-explorer",
+  "version": "1.0.0",
+  "description": "A Chrome extension that brings the nostalgic Windows XP Explorer interface to bookmark management, featuring a modern Liquid Glass theme.",
+  "main": "index.js",
+  "scripts": {
+    "test": "playwright test",
+    "test:headed": "playwright test --headed"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/laststance/bookmark-xp-explorer.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/laststance/bookmark-xp-explorer/issues"
+  },
+  "homepage": "https://github.com/laststance/bookmark-xp-explorer#readme",
+  "devDependencies": {
+    "@playwright/test": "^1.57.0"
+  }
+}
