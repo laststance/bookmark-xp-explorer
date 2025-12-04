@@ -15,3 +15,14 @@ Thumbs.db
 # Temporary
 *.log
 *.tmp
+
+# Node
+node_modules/
+
+# Test artifacts
+test-results/
+playwright-report/
+
+# Project index (generated)
+PROJECT_INDEX.json
+PROJECT_INDEX.md
