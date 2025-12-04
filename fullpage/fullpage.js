@@ -71,7 +71,8 @@ async function init() {
   setupSearch();
   setupKeyboardShortcuts();
   setupResizers();
-  
+  setupSettingsButton();
+
   // Set initial view mode
   if (state.viewMode === 'split') {
     elements.contentArea.classList.add('split-view');
@@ -142,6 +143,16 @@ function setViewMode(mode) {
   if (mode === 'split') {
     showToast('Split view enabled - drag items between panes!', 'info');
   }
+}
+
+/**
+ * Sets up the settings button click handler.
+ * Opens the settings page in a new tab.
+ */
+function setupSettingsButton() {
+  document.getElementById('open-settings').addEventListener('click', () => {
+    chrome.tabs.create({ url: chrome.runtime.getURL('settings/settings.html') });
+  });
 }
 
 // ============================================

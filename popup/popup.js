@@ -277,7 +277,13 @@ function setupEventListeners() {
     chrome.tabs.create({ url: chrome.runtime.getURL('fullpage/fullpage.html') });
     window.close();
   });
-  
+
+  // Open Settings button
+  document.getElementById('open-settings').addEventListener('click', () => {
+    chrome.tabs.create({ url: chrome.runtime.getURL('settings/settings.html') });
+    window.close();
+  });
+
   // Toolbar buttons
   elements.btnBack.addEventListener('click', goBack);
   elements.btnForward.addEventListener('click', goForward);

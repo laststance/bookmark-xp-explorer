@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Settings - Bookmark XP Explorer</title>
+  <link rel="stylesheet" href="settings.css">
+</head>
+<body>
+  <div class="settings-container">
+    <header class="settings-header">
+      <h1>⚙️ Settings</h1>
+      <p class="subtitle">Bookmark XP Explorer</p>
+    </header>
+
+    <main class="settings-content">
+      <section class="setting-group">
+        <h2>Default View Mode</h2>
+        <p class="setting-description">
+          Choose what happens when you click the extension icon in the toolbar.
+        </p>
+
+        <div class="setting-item">
+          <label class="toggle-container">
+            <span class="toggle-label">
+              <span class="toggle-title">Open fullpage mode by default</span>
+              <span class="toggle-hint">When enabled, clicking the icon opens the full-page bookmark explorer instead of the popup.</span>
+            </span>
+            <div class="toggle-switch">
+              <input type="checkbox" id="fullpage-default" checked aria-label="Enable fullpage mode by default">
+              <span class="toggle-slider"></span>
+            </div>
+          </label>
+        </div>
+      </section>
+
+      <section class="setting-group">
+        <h2>Keyboard Shortcuts</h2>
+        <div class="shortcut-list">
+          <div class="shortcut-item">
+            <kbd class="mod-key">Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>B</kbd>
+            <span class="shortcut-desc">Open fullpage mode (always available)</span>
+          </div>
+          <div class="shortcut-item">
+            <kbd class="mod-key">Ctrl</kbd> + <kbd>Z</kbd>
+            <span class="shortcut-desc">Undo last action</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="setting-group">
+        <h2>About</h2>
+        <div class="about-info">
+          <p><strong>Version:</strong> <span id="version">1.1.0</span></p>
+          <p><strong>Theme:</strong> Windows XP Explorer with Liquid Glass</p>
+        </div>
+      </section>
+    </main>
+
+    <footer class="settings-footer">
+      <p class="save-status" id="save-status">Settings are saved automatically.</p>
+    </footer>
+  </div>
+
+  <script src="settings.js"></script>
+</body>
+</html>
