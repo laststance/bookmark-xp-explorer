@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=600">
+  <link rel="stylesheet" href="popup.css">
+  <title>Bookmark XP Explorer</title>
+</head>
+<body>
+  <div class="window">
+    <!-- Title Bar (Windows XP風) -->
+    <div class="title-bar">
+      <div class="title-bar-icon">📁</div>
+      <div class="title-bar-text">Bookmark Explorer</div>
+      <div class="title-bar-controls">
+        <button class="fullpage-btn" id="open-fullpage" title="Open Full Page (Ctrl+Shift+B)">
+          <span>⛶</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Toolbar -->
+    <div class="toolbar">
+      <button class="toolbar-btn" id="btn-back" title="Back">
+        <span>◀</span>
+      </button>
+      <button class="toolbar-btn" id="btn-forward" title="Forward">
+        <span>▶</span>
+      </button>
+      <button class="toolbar-btn" id="btn-up" title="Up">
+        <span>⬆</span>
+      </button>
+      <div class="toolbar-separator"></div>
+      <button class="toolbar-btn" id="btn-new-folder" title="New Folder">
+        <span>📁+</span>
+      </button>
+      <button class="toolbar-btn" id="btn-refresh" title="Refresh">
+        <span>🔄</span>
+      </button>
+      <div class="toolbar-spacer"></div>
+      <div class="search-box">
+        <input type="text" id="search-input" placeholder="Search bookmarks...">
+      </div>
+    </div>
+
+    <!-- Address Bar -->
+    <div class="address-bar">
+      <span class="address-label">Address</span>
+      <div class="address-path" id="current-path">
+        <span class="path-segment" data-id="0">Bookmarks</span>
+      </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+      <!-- Left Pane: Folder Tree -->
+      <div class="left-pane">
+        <div class="pane-header">Folders</div>
+        <div class="folder-tree" id="folder-tree"></div>
+      </div>
+
+      <!-- Resizer -->
+      <div class="pane-resizer"></div>
+
+      <!-- Right Pane: Content View -->
+      <div class="right-pane">
+        <div class="content-view" id="content-view"></div>
+      </div>
+    </div>
+
+    <!-- Status Bar -->
+    <div class="status-bar">
+      <span id="status-text">Ready</span>
+      <span id="item-count"></span>
+    </div>
+  </div>
+
+  <!-- Context Menu -->
+  <div class="context-menu" id="context-menu">
+    <div class="context-menu-item" data-action="open">
+      <span class="menu-icon">🔗</span> Open
+    </div>
+    <div class="context-menu-item" data-action="open-new-tab">
+      <span class="menu-icon">📑</span> Open in New Tab
+    </div>
+    <div class="context-menu-separator"></div>
+    <div class="context-menu-item" data-action="rename">
+      <span class="menu-icon">✏️</span> Rename
+    </div>
+    <div class="context-menu-item" data-action="delete">
+      <span class="menu-icon">🗑️</span> Delete
+    </div>
+    <div class="context-menu-separator"></div>
+    <div class="context-menu-item" data-action="new-folder">
+      <span class="menu-icon">📁</span> New Folder
+    </div>
+    <div class="context-menu-item" data-action="new-bookmark">
+      <span class="menu-icon">🔖</span> New Bookmark
+    </div>
+  </div>
+
+  <!-- Rename Dialog -->
+  <div class="dialog-overlay" id="rename-dialog">
+    <div class="dialog">
+      <div class="dialog-title">Rename</div>
+      <input type="text" id="rename-input" class="dialog-input">
+      <div class="dialog-buttons">
+        <button class="dialog-btn primary" id="rename-ok">OK</button>
+        <button class="dialog-btn" id="rename-cancel">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- New Folder Dialog -->
+  <div class="dialog-overlay" id="new-folder-dialog">
+    <div class="dialog">
+      <div class="dialog-title">New Folder</div>
+      <input type="text" id="new-folder-input" class="dialog-input" placeholder="Folder name">
+      <div class="dialog-buttons">
+        <button class="dialog-btn primary" id="new-folder-ok">OK</button>
+        <button class="dialog-btn" id="new-folder-cancel">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- New Bookmark Dialog -->
+  <div class="dialog-overlay" id="new-bookmark-dialog">
+    <div class="dialog">
+      <div class="dialog-title">New Bookmark</div>
+      <input type="text" id="new-bookmark-title" class="dialog-input" placeholder="Title">
+      <input type="url" id="new-bookmark-url" class="dialog-input" placeholder="URL">
+      <div class="dialog-buttons">
+        <button class="dialog-btn primary" id="new-bookmark-ok">OK</button>
+        <button class="dialog-btn" id="new-bookmark-cancel">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
