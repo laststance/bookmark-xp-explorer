@@ -216,13 +216,9 @@ async function loadPaneContent(paneNum) {
     return;
   }
   
-  // Sort: folders first, then bookmarks
-  children.sort((a, b) => {
-    if (!a.url && b.url) return -1;
-    if (a.url && !b.url) return 1;
-    return a.title.localeCompare(b.title);
-  });
-  
+  // Keep original order from Chrome (no sorting)
+  // This preserves the user's custom arrangement in the bookmark bar
+
   children.forEach(child => {
     renderContentItem(child, content);
   });
@@ -732,15 +728,6 @@ async function handleContextAction(action, targetId, paneNum) {
       }
       break;
       
-    case 'cut':
-      if (targetId) {
-        state.clipboard = { action: 'cut', id: targetId, sourcePane: paneNum };
-        document.querySelectorAll('.content-item.cut').forEach(el => el.classList.remove('cut'));
-        document.querySelector(`.content-item[data-id="${targetId}"]`)?.classList.add('cut');
-        showToast('Item cut to clipboard', 'info');
-      }
-      break;
-      
     case 'copy':
       if (targetId) {
         state.clipboard = { action: 'copy', id: targetId, sourcePane: paneNum };
@@ -774,33 +761,27 @@ async function handleContextAction(action, targetId, paneNum) {
 
 async function pasteItem(paneNum) {
   if (!state.clipboard) return;
-  
+
   const targetFolderId = state.panes[paneNum].currentFolderId;
-  
+
   try {
-    if (state.clipboard.action === 'cut') {
-      await chrome.bookmarks.move(state.clipboard.id, { parentId: targetFolderId });
-      showToast('Item moved', 'success');
+    // Copy - get bookmark and create copy
+    const [original] = await chrome.bookmarks.get(state.clipboard.id);
+    if (original.url) {
+      await chrome.bookmarks.create({
+        parentId: targetFolderId,
+        title: original.title,
+        url: original.url
+      });
     } else {
-      // Copy - need to get bookmark and create copy
-      const [original] = await chrome.bookmarks.get(state.clipboard.id);
-      if (original.url) {
-        await chrome.bookmarks.create({
-          parentId: targetFolderId,
-          title: original.title,
-          url: original.url
-        });
-      } else {
-        // Copy folder (shallow - just the folder itself)
-        await chrome.bookmarks.create({
-          parentId: targetFolderId,
-          title: original.title + ' (copy)'
-        });
-      }
-      showToast('Item copied', 'success');
+      // Copy folder (shallow - just the folder itself)
+      await chrome.bookmarks.create({
+        parentId: targetFolderId,
+        title: original.title + ' (copy)'
+      });
     }
-    
-    document.querySelectorAll('.content-item.cut').forEach(el => el.classList.remove('cut'));
+    showToast('Item copied', 'success');
+
     state.clipboard = null;
     
     await loadPaneContent(1);
@@ -1083,12 +1064,6 @@ function setupKeyboardShortcuts() {
     if (e.key === 'Escape') {
       hideContextMenu();
       hideAllDialogs();
-    }
-    
-    // Ctrl+X Cut
-    if ((e.ctrlKey || e.metaKey) && e.key === 'x' && paneState.selectedItems.size === 1) {
-      const firstSelected = paneState.selectedItems.values().next().value;
-      handleContextAction('cut', firstSelected, paneNum);
     }
     
     // Ctrl+C Copy

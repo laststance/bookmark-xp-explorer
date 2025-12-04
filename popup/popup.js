@@ -136,13 +136,9 @@ async function loadContent(folderId) {
     return;
   }
   
-  // Sort: folders first, then bookmarks
-  children.sort((a, b) => {
-    if (!a.url && b.url) return -1;
-    if (a.url && !b.url) return 1;
-    return a.title.localeCompare(b.title);
-  });
-  
+  // Keep original order from Chrome (no sorting)
+  // This preserves the user's custom arrangement in the bookmark bar
+
   children.forEach(child => {
     renderContentItem(child);
   });
