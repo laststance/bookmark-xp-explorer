@@ -382,8 +382,9 @@ function clearSelection() {
 // Drag and Drop
 // ============================================
 function setupDragAndDrop() {
-  // Track last drop target to prevent flickering and ensure drop accuracy
+  // Track last drop target and position to prevent flickering
   let lastDropTarget = null;
+  let lastDropPosition = null; // 'before' | 'after' | 'into'
   
   /**
    * Find a valid drop target near the given coordinates
@@ -405,12 +406,60 @@ function setupDragAndDrop() {
       const el = document.elementFromPoint(x + dx, y + dy);
       if (!el) continue;
       
-      const target = el.closest('.content-item[data-is-folder="true"], .tree-item');
+      // Now also include non-folder content items for reordering
+      const target = el.closest('.content-item, .tree-item');
       if (target && target.dataset.id !== excludeId) {
         return target;
       }
     }
     return null;
+  }
+  
+  /**
+   * Determine drop position based on mouse position relative to target
+   * @param {MouseEvent} e - Mouse event
+   * @param {Element} target - Target element
+   * @returns {'before' | 'after' | 'into'} - Drop position
+   */
+  function getDropPosition(e, target) {
+    const rect = target.getBoundingClientRect();
+    const mouseY = e.clientY;
+    const relativeY = mouseY - rect.top;
+    const heightRatio = relativeY / rect.height;
+    
+    const isFolder = target.dataset.isFolder === 'true';
+    
+    if (isFolder) {
+      // For folders: top 25% = before, middle 50% = into, bottom 25% = after
+      if (heightRatio < 0.25) return 'before';
+      if (heightRatio > 0.75) return 'after';
+      return 'into';
+    } else {
+      // For bookmarks: top 50% = before, bottom 50% = after
+      return heightRatio < 0.5 ? 'before' : 'after';
+    }
+  }
+  
+  /**
+   * Update visual feedback classes based on drop position
+   * @param {Element} target - Target element
+   * @param {'before' | 'after' | 'into' | null} position - Drop position
+   */
+  function updateDropIndicator(target, position) {
+    // Remove all drop indicators
+    document.querySelectorAll('.drag-over, .drop-before, .drop-after').forEach(el => {
+      el.classList.remove('drag-over', 'drop-before', 'drop-after');
+    });
+    
+    if (!target || !position) return;
+    
+    if (position === 'into') {
+      target.classList.add('drag-over');
+    } else if (position === 'before') {
+      target.classList.add('drop-before');
+    } else if (position === 'after') {
+      target.classList.add('drop-after');
+    }
   }
   
   // Drag start
@@ -429,23 +478,24 @@ function setupDragAndDrop() {
   
   // Drag end
   document.addEventListener('dragend', () => {
-    document.querySelectorAll('.dragging, .drag-over').forEach(el => {
-      el.classList.remove('dragging', 'drag-over');
+    document.querySelectorAll('.dragging, .drag-over, .drop-before, .drop-after').forEach(el => {
+      el.classList.remove('dragging', 'drag-over', 'drop-before', 'drop-after');
     });
     state.draggedItem = null;
     lastDropTarget = null;
+    lastDropPosition = null;
     document.body.classList.remove('dragging-active');
   });
   
-  // Drag over - track the current drop target
+  // Drag over - track the current drop target and position
   document.addEventListener('dragover', (e) => {
     if (!state.draggedItem) return;
     
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
     
-    // Find valid drop target
-    let target = e.target.closest('.content-item[data-is-folder="true"], .tree-item');
+    // Find valid drop target (now includes all content items)
+    let target = e.target.closest('.content-item, .tree-item');
     
     // If not found directly, search nearby
     if (!target) {
@@ -453,17 +503,18 @@ function setupDragAndDrop() {
     }
     
     if (target && target.dataset.id !== state.draggedItem) {
-      // Only update classes if target changed
-      if (lastDropTarget !== target) {
-        if (lastDropTarget) {
-          lastDropTarget.classList.remove('drag-over');
-        }
-        target.classList.add('drag-over');
+      const position = getDropPosition(e, target);
+      
+      // Only update if target or position changed
+      if (lastDropTarget !== target || lastDropPosition !== position) {
+        updateDropIndicator(target, position);
         lastDropTarget = target;
+        lastDropPosition = position;
       }
     } else if (!target && lastDropTarget) {
-      lastDropTarget.classList.remove('drag-over');
+      updateDropIndicator(null, null);
       lastDropTarget = null;
+      lastDropPosition = null;
     }
   });
   
@@ -477,59 +528,67 @@ function setupDragAndDrop() {
       return;
     }
     
-    const newTarget = relatedTarget?.closest('.content-item[data-is-folder="true"], .tree-item');
+    const newTarget = relatedTarget?.closest('.content-item, .tree-item');
     if (newTarget && newTarget !== target) {
       return;
     }
     
-    target.classList.remove('drag-over');
+    target.classList.remove('drag-over', 'drop-before', 'drop-after');
     if (lastDropTarget === target) {
       lastDropTarget = null;
+      lastDropPosition = null;
     }
   });
   
-  // Drop - multi-fallback strategy for maximum success rate
+  // Drop - multi-fallback strategy with reordering support
   document.addEventListener('drop', async (e) => {
     e.preventDefault();
     if (!state.draggedItem) return;
 
-    // CRITICAL: Capture draggedItem immediately to prevent race condition
-    // dragend event may fire during async operations and set state.draggedItem = null
+    // CRITICAL: Capture state immediately to prevent race condition
     const draggedItemId = state.draggedItem;
     const currentLastDropTarget = lastDropTarget;
+    const currentDropPosition = lastDropPosition;
 
-    let targetId = null;
+    let targetElement = null;
+    let dropPosition = null;
 
     // Strategy 1: Use lastDropTarget (visually highlighted element - highest reliability)
     if (currentLastDropTarget && currentLastDropTarget.dataset?.id) {
-      targetId = currentLastDropTarget.dataset.id;
+      targetElement = currentLastDropTarget;
+      dropPosition = currentDropPosition;
     }
 
     // Strategy 2: Direct DOM traversal from e.target
-    if (!targetId) {
-      const target = e.target.closest('.content-item[data-is-folder="true"], .tree-item');
-      if (target) {
-        targetId = target.dataset.id;
+    if (!targetElement) {
+      const target = e.target.closest('.content-item, .tree-item');
+      if (target && target.dataset.id !== draggedItemId) {
+        targetElement = target;
+        dropPosition = getDropPosition(e, target);
       }
     }
 
     // Strategy 3: Search nearby elements using elementFromPoint
-    if (!targetId) {
+    if (!targetElement) {
       const nearbyTarget = findNearbyDropTarget(e.clientX, e.clientY, draggedItemId);
       if (nearbyTarget) {
-        targetId = nearbyTarget.dataset.id;
+        targetElement = nearbyTarget;
+        dropPosition = getDropPosition(e, nearbyTarget);
       }
     }
 
     // No valid target found
-    if (!targetId || targetId === draggedItemId) {
-      // Clean up and exit
-      document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+    if (!targetElement || !dropPosition) {
+      updateDropIndicator(null, null);
       state.draggedItem = null;
       lastDropTarget = null;
+      lastDropPosition = null;
       document.body.classList.remove('dragging-active');
       return;
     }
+
+    const targetId = targetElement.dataset.id;
+    const isTargetFolder = targetElement.dataset.isFolder === 'true';
 
     try {
       // Capture original position before move for undo
@@ -537,7 +596,31 @@ function setupDragAndDrop() {
       const originalParentId = originalNode.parentId;
       const originalIndex = originalNode.index;
 
-      await chrome.bookmarks.move(draggedItemId, { parentId: targetId });
+      let moveDestination = {};
+
+      if (dropPosition === 'into' && isTargetFolder) {
+        // Move into folder (existing behavior)
+        moveDestination = { parentId: targetId };
+      } else {
+        // Reorder: move before or after target item
+        const [targetNode] = await chrome.bookmarks.get(targetId);
+        const targetParentId = targetNode.parentId;
+        let targetIndex = targetNode.index;
+
+        // Calculate new index
+        if (dropPosition === 'after') {
+          targetIndex += 1;
+        }
+
+        // Adjust index if moving within the same folder and from before the target
+        if (originalParentId === targetParentId && originalIndex < targetIndex) {
+          targetIndex -= 1;
+        }
+
+        moveDestination = { parentId: targetParentId, index: targetIndex };
+      }
+
+      await chrome.bookmarks.move(draggedItemId, moveDestination);
 
       // Push undo action
       pushUndoAction({
@@ -547,16 +630,18 @@ function setupDragAndDrop() {
         originalIndex: originalIndex
       });
 
-      elements.statusText.textContent = 'Item moved successfully';
+      const action = dropPosition === 'into' ? 'moved to folder' : 'reordered';
+      elements.statusText.textContent = `Item ${action} successfully`;
       await refresh();
     } catch (error) {
       elements.statusText.textContent = 'Failed to move item';
       console.error('Move failed:', error);
     }
 
-    document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+    updateDropIndicator(null, null);
     state.draggedItem = null;
     lastDropTarget = null;
+    lastDropPosition = null;
     document.body.classList.remove('dragging-active');
   });
 }

@@ -606,6 +606,53 @@ body.dragging-active .tree-item:not(.dragging) {
   box-shadow: 0 0 0 2px var(--accent-blue), 0 4px 12px rgba(0, 120, 212, 0.25);
 }
 
+/* Insertion line indicators for reordering */
+.content-item.drop-before,
+.tree-item.drop-before {
+  position: relative;
+}
+
+.content-item.drop-before::before,
+.tree-item.drop-before::before {
+  content: '';
+  position: absolute;
+  top: -3px;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: var(--accent-blue);
+  border-radius: 2px;
+  box-shadow: 0 0 8px rgba(0, 120, 212, 0.5);
+  z-index: 100;
+}
+
+.content-item.drop-after,
+.tree-item.drop-after {
+  position: relative;
+}
+
+.content-item.drop-after::after,
+.tree-item.drop-after::after {
+  content: '';
+  position: absolute;
+  bottom: -3px;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: var(--accent-blue);
+  border-radius: 2px;
+  box-shadow: 0 0 8px rgba(0, 120, 212, 0.5);
+  z-index: 100;
+}
+
+/* Subtle highlight for reorder targets */
+.content-item.drop-before,
+.content-item.drop-after,
+.tree-item.drop-before,
+.tree-item.drop-after {
+  background: rgba(0, 120, 212, 0.08);
+}
+
 /* Pane content drop zone feedback */
 .pane-content.drag-over {
   background: rgba(0, 120, 212, 0.1);

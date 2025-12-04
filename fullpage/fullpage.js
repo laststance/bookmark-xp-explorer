@@ -531,8 +531,9 @@ async function toggleFolder(folderId) {
 // Drag and Drop
 // ============================================
 function setupDragAndDrop() {
-  // Track last drop target to prevent flickering and ensure drop accuracy
+  // Track last drop target and position to prevent flickering
   let lastDropTarget = null;
+  let lastDropPosition = null; // 'before' | 'after' | 'into'
   
   /**
    * Find a valid drop target near the given coordinates
@@ -555,8 +556,8 @@ function setupDragAndDrop() {
       const el = document.elementFromPoint(x + dx, y + dy);
       if (!el) continue;
       
-      // Check for folder item or tree item
-      const target = el.closest('.content-item[data-is-folder="true"], .tree-item');
+      // Now also include non-folder content items for reordering
+      const target = el.closest('.content-item, .tree-item');
       if (target && target.dataset.id !== excludeId) {
         return target;
       }
@@ -565,41 +566,50 @@ function setupDragAndDrop() {
   }
   
   /**
-   * Get target ID from various sources with fallback strategy
-   * @param {DragEvent} e - The drop event
-   * @param {Element|null} lastTarget - Last tracked drop target
-   * @param {string} excludeId - ID to exclude
-   * @returns {string|null} - Target folder ID or null
+   * Determine drop position based on mouse position relative to target
+   * @param {MouseEvent} e - Mouse event
+   * @param {Element} target - Target element
+   * @returns {'before' | 'after' | 'into'} - Drop position
    */
-  function resolveDropTarget(e, lastTarget, excludeId) {
-    // Strategy 1: Use lastDropTarget (visually highlighted - highest reliability)
-    if (lastTarget?.dataset?.id && lastTarget.dataset.id !== excludeId) {
-      return { id: lastTarget.dataset.id, type: 'folder' };
-    }
+  function getDropPosition(e, target) {
+    const rect = target.getBoundingClientRect();
+    const mouseY = e.clientY;
+    const relativeY = mouseY - rect.top;
+    const heightRatio = relativeY / rect.height;
     
-    // Strategy 2: Direct DOM traversal
-    const directTarget = e.target.closest('.content-item[data-is-folder="true"], .tree-item');
-    if (directTarget?.dataset?.id && directTarget.dataset.id !== excludeId) {
-      return { id: directTarget.dataset.id, type: 'folder' };
-    }
+    const isFolder = target.dataset.isFolder === 'true';
     
-    // Strategy 3: Search nearby elements
-    const nearbyTarget = findNearbyDropTarget(e.clientX, e.clientY, excludeId);
-    if (nearbyTarget?.dataset?.id) {
-      return { id: nearbyTarget.dataset.id, type: 'folder' };
+    if (isFolder) {
+      // For folders: top 25% = before, middle 50% = into, bottom 25% = after
+      if (heightRatio < 0.25) return 'before';
+      if (heightRatio > 0.75) return 'after';
+      return 'into';
+    } else {
+      // For bookmarks: top 50% = before, bottom 50% = after
+      return heightRatio < 0.5 ? 'before' : 'after';
     }
+  }
+  
+  /**
+   * Update visual feedback classes based on drop position
+   * @param {Element} target - Target element
+   * @param {'before' | 'after' | 'into' | null} position - Drop position
+   */
+  function updateDropIndicator(target, position) {
+    // Remove all drop indicators
+    document.querySelectorAll('.drag-over, .drop-before, .drop-after').forEach(el => {
+      el.classList.remove('drag-over', 'drop-before', 'drop-after');
+    });
     
-    // Strategy 4: Drop on pane content (move to current folder)
-    const paneContent = e.target.closest('.pane-content');
-    if (paneContent) {
-      const paneNum = parseInt(paneContent.dataset.pane);
-      const currentFolderId = state.panes[paneNum]?.currentFolderId;
-      if (currentFolderId && currentFolderId !== excludeId) {
-        return { id: currentFolderId, type: 'pane' };
-      }
+    if (!target || !position) return;
+    
+    if (position === 'into') {
+      target.classList.add('drag-over');
+    } else if (position === 'before') {
+      target.classList.add('drop-before');
+    } else if (position === 'after') {
+      target.classList.add('drop-after');
     }
-    
-    return null;
   }
   
   document.addEventListener('dragstart', (e) => {
@@ -619,11 +629,12 @@ function setupDragAndDrop() {
   });
   
   document.addEventListener('dragend', () => {
-    document.querySelectorAll('.dragging, .drag-over').forEach(el => {
-      el.classList.remove('dragging', 'drag-over');
+    document.querySelectorAll('.dragging, .drag-over, .drop-before, .drop-after').forEach(el => {
+      el.classList.remove('dragging', 'drag-over', 'drop-before', 'drop-after');
     });
     state.draggedItem = null;
     lastDropTarget = null;
+    lastDropPosition = null;
     document.body.classList.remove('dragging-active');
   });
   
@@ -633,36 +644,37 @@ function setupDragAndDrop() {
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
     
-    // Find valid drop target
-    let target = e.target.closest('.content-item[data-is-folder="true"], .tree-item');
+    // Find valid drop target (now includes all content items)
+    let target = e.target.closest('.content-item, .tree-item');
     
     // If not found directly, search nearby
     if (!target) {
       target = findNearbyDropTarget(e.clientX, e.clientY, state.draggedItem.id);
     }
     
-    // Also allow pane-content as drop zone
+    // Also allow pane-content as drop zone (move to current folder)
     const paneContent = !target ? e.target.closest('.pane-content') : null;
     
     if (target && target.dataset?.id !== state.draggedItem.id) {
-      if (lastDropTarget !== target) {
-        if (lastDropTarget) {
-          lastDropTarget.classList.remove('drag-over');
-        }
-        target.classList.add('drag-over');
+      const position = getDropPosition(e, target);
+      
+      // Only update if target or position changed
+      if (lastDropTarget !== target || lastDropPosition !== position) {
+        updateDropIndicator(target, position);
         lastDropTarget = target;
+        lastDropPosition = position;
       }
     } else if (paneContent) {
       if (lastDropTarget !== paneContent) {
-        if (lastDropTarget) {
-          lastDropTarget.classList.remove('drag-over');
-        }
+        updateDropIndicator(null, null);
         paneContent.classList.add('drag-over');
         lastDropTarget = paneContent;
+        lastDropPosition = 'into';
       }
     } else if (lastDropTarget) {
-      lastDropTarget.classList.remove('drag-over');
+      updateDropIndicator(null, null);
       lastDropTarget = null;
+      lastDropPosition = null;
     }
   });
   
@@ -675,14 +687,15 @@ function setupDragAndDrop() {
       return;
     }
     
-    const newTarget = relatedTarget?.closest('.content-item[data-is-folder="true"], .tree-item, .pane-content');
+    const newTarget = relatedTarget?.closest('.content-item, .tree-item, .pane-content');
     if (newTarget && newTarget !== target) {
       return;
     }
     
-    target.classList.remove('drag-over');
+    target.classList.remove('drag-over', 'drop-before', 'drop-after');
     if (lastDropTarget === target) {
       lastDropTarget = null;
+      lastDropPosition = null;
     }
   });
   
@@ -691,24 +704,95 @@ function setupDragAndDrop() {
 
     if (!state.draggedItem) return;
 
-    // CRITICAL: Capture draggedItem immediately to prevent race condition
-    // dragend event may fire during async operations and set state.draggedItem = null
+    // CRITICAL: Capture state immediately to prevent race condition
     const draggedItemId = state.draggedItem.id;
     const currentLastDropTarget = lastDropTarget;
+    const currentDropPosition = lastDropPosition;
 
-    // Use multi-fallback strategy to resolve drop target
-    const resolved = resolveDropTarget(e, currentLastDropTarget, draggedItemId);
+    let targetElement = null;
+    let dropPosition = null;
 
-    if (!resolved) {
-      // No valid target - clean up and exit
+    // Strategy 1: Use lastDropTarget (visually highlighted - highest reliability)
+    if (currentLastDropTarget && currentLastDropTarget.dataset?.id) {
+      targetElement = currentLastDropTarget;
+      dropPosition = currentDropPosition;
+    }
+
+    // Strategy 2: Direct DOM traversal
+    if (!targetElement) {
+      const target = e.target.closest('.content-item, .tree-item');
+      if (target && target.dataset.id !== draggedItemId) {
+        targetElement = target;
+        dropPosition = getDropPosition(e, target);
+      }
+    }
+
+    // Strategy 3: Search nearby elements
+    if (!targetElement) {
+      const nearbyTarget = findNearbyDropTarget(e.clientX, e.clientY, draggedItemId);
+      if (nearbyTarget) {
+        targetElement = nearbyTarget;
+        dropPosition = getDropPosition(e, nearbyTarget);
+      }
+    }
+
+    // Strategy 4: Drop on pane content (move to current folder)
+    if (!targetElement) {
+      const paneContent = e.target.closest('.pane-content');
+      if (paneContent) {
+        const paneNum = parseInt(paneContent.dataset.pane);
+        const currentFolderId = state.panes[paneNum]?.currentFolderId;
+        if (currentFolderId && currentFolderId !== draggedItemId) {
+          // Move to current folder (existing behavior)
+          try {
+            const [originalNode] = await chrome.bookmarks.get(draggedItemId);
+            const originalParentId = originalNode.parentId;
+            const originalIndex = originalNode.index;
+
+            await chrome.bookmarks.move(draggedItemId, { parentId: currentFolderId });
+
+            pushUndoAction({
+              type: 'move',
+              itemId: draggedItemId,
+              originalParentId: originalParentId,
+              originalIndex: originalIndex
+            });
+
+            showToast('Item moved successfully', 'success');
+            await loadPaneContent(1);
+            if (state.viewMode === 'split') {
+              await loadPaneContent(2);
+            }
+            await loadFolderTree();
+          } catch (error) {
+            showToast('Failed to move item', 'error');
+            console.error('Move failed:', error);
+          }
+
+          updateDropIndicator(null, null);
+          document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+          state.draggedItem = null;
+          lastDropTarget = null;
+          lastDropPosition = null;
+          document.body.classList.remove('dragging-active');
+          return;
+        }
+      }
+    }
+
+    // No valid target found
+    if (!targetElement || !dropPosition) {
+      updateDropIndicator(null, null);
       document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
       state.draggedItem = null;
       lastDropTarget = null;
+      lastDropPosition = null;
       document.body.classList.remove('dragging-active');
       return;
     }
 
-    const targetId = resolved.id;
+    const targetId = targetElement.dataset.id;
+    const isTargetFolder = targetElement.dataset.isFolder === 'true';
 
     try {
       // Capture original position before move for undo
@@ -716,7 +800,31 @@ function setupDragAndDrop() {
       const originalParentId = originalNode.parentId;
       const originalIndex = originalNode.index;
 
-      await chrome.bookmarks.move(draggedItemId, { parentId: targetId });
+      let moveDestination = {};
+
+      if (dropPosition === 'into' && isTargetFolder) {
+        // Move into folder (existing behavior)
+        moveDestination = { parentId: targetId };
+      } else {
+        // Reorder: move before or after target item
+        const [targetNode] = await chrome.bookmarks.get(targetId);
+        const targetParentId = targetNode.parentId;
+        let targetIndex = targetNode.index;
+
+        // Calculate new index
+        if (dropPosition === 'after') {
+          targetIndex += 1;
+        }
+
+        // Adjust index if moving within the same folder and from before the target
+        if (originalParentId === targetParentId && originalIndex < targetIndex) {
+          targetIndex -= 1;
+        }
+
+        moveDestination = { parentId: targetParentId, index: targetIndex };
+      }
+
+      await chrome.bookmarks.move(draggedItemId, moveDestination);
 
       // Push undo action
       pushUndoAction({
@@ -726,7 +834,8 @@ function setupDragAndDrop() {
         originalIndex: originalIndex
       });
 
-      showToast('Item moved successfully', 'success');
+      const action = dropPosition === 'into' ? 'moved to folder' : 'reordered';
+      showToast(`Item ${action} successfully`, 'success');
 
       // Refresh both panes
       await loadPaneContent(1);
@@ -739,9 +848,11 @@ function setupDragAndDrop() {
       console.error('Move failed:', error);
     }
 
+    updateDropIndicator(null, null);
     document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
     state.draggedItem = null;
     lastDropTarget = null;
+    lastDropPosition = null;
     document.body.classList.remove('dragging-active');
   });
 }
