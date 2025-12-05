@@ -4,13 +4,14 @@
 
 ## Overview
 
-Bookmark XP Explorer is a Chrome extension that provides a Windows XP Explorer-style interface for managing your browser bookmarks. We are committed to protecting your privacy.
+Bookmark XP Explorer is a Chrome extension that provides an XP Explorer-style interface for managing your browser bookmarks. We are committed to protecting your privacy.
 
 ## Data Collection
 
 **We do not collect any data.**
 
 Bookmark XP Explorer:
+
 - Does NOT collect personal information
 - Does NOT track your browsing activity
 - Does NOT send any data to external servers
@@ -20,6 +21,7 @@ Bookmark XP Explorer:
 ## Data Storage
 
 All data used by this extension is stored locally in your browser:
+
 - **Bookmarks:** Managed through Chrome's built-in bookmark system
 - **Preferences:** View mode and UI settings are stored using Chrome's local storage API
 
@@ -29,11 +31,11 @@ This data never leaves your device and is not accessible to us or any third part
 
 The extension requests the following permissions:
 
-| Permission | Purpose |
-|------------|---------|
-| `bookmarks` | Read and modify your bookmarks (core functionality) |
-| `storage` | Save your preferences locally (view mode, expanded folders) |
-| `tabs` | Open bookmarks in new tabs when you click them |
+| Permission  | Purpose                                                     |
+| ----------- | ----------------------------------------------------------- |
+| `bookmarks` | Read and modify your bookmarks (core functionality)         |
+| `storage`   | Save your preferences locally (view mode, expanded folders) |
+| `tabs`      | Open bookmarks in new tabs when you click them              |
 
 These permissions are used solely for the extension's functionality and not for data collection.
 

@@ -5,8 +5,9 @@
 **Extension Name:** Bookmark XP Explorer
 
 **Short Description (132 chars max):**
+
 ```
-Windows XP Explorer style bookmark manager with modern Liquid Glass theme. Features split view and drag-and-drop organization.
+XP Explorer style bookmark manager with modern Liquid Glass theme. Features split view and drag-and-drop organization.
 ```
 
 **Category:** Productivity
@@ -18,11 +19,11 @@ Windows XP Explorer style bookmark manager with modern Liquid Glass theme. Featu
 ## Detailed Description (for store listing)
 
 ```
-Bookmark XP Explorer brings back the nostalgic Windows XP Explorer interface to manage your Chrome bookmarks with a modern twist!
+Bookmark XP Explorer brings back the nostalgic XP Explorer interface to manage your Chrome bookmarks with a modern twist!
 
 FEATURES:
 
-★ Classic Windows XP Look
+★ Classic XP Look
 - Familiar folder tree navigation
 - Address bar with breadcrumb path
 - Status bar with item count
@@ -61,11 +62,13 @@ Perfect for users who miss the classic file explorer experience and want a power
 ## Required Assets
 
 ### Icons (Already have)
+
 - [x] 16x16 px - icons/icon16.png
 - [x] 48x48 px - icons/icon48.png
 - [x] 128x128 px - icons/icon128.png
 
 ### Screenshots (Need to create)
+
 - [ ] Screenshot 1: Main popup view (1280x800 or 640x400)
 - [ ] Screenshot 2: Full-page view single pane
 - [ ] Screenshot 3: Split view mode
@@ -73,6 +76,7 @@ Perfect for users who miss the classic file explorer experience and want a power
 - [ ] Screenshot 5: Search functionality
 
 ### Promotional Images (Optional but recommended)
+
 - [ ] Small promo tile: 440x280 px
 - [ ] Large promo tile: 920x680 px (for featured placement)
 - [ ] Marquee promo tile: 1400x560 px

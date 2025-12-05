@@ -1,10 +1,10 @@
 # Bookmark XP Explorer
 
-A Chrome extension that brings the nostalgic Windows XP Explorer interface to bookmark management, featuring a modern Liquid Glass theme.
+A Chrome extension that brings the nostalgic XP Explorer interface to bookmark management, featuring a modern Liquid Glass theme.
 
 ## Features
 
-- **Classic Windows XP Look** - Familiar folder tree navigation with address bar
+- **Classic XP Look** - Familiar folder tree navigation with address bar
 - **Liquid Glass Theme** - Modern, translucent design with smooth animations
 - **Split View Mode** - View and organize two folders side-by-side
 - **Full Bookmark Management** - Create, rename, delete, drag-and-drop
@@ -14,9 +14,11 @@ A Chrome extension that brings the nostalgic Windows XP Explorer interface to bo
 ## Installation
 
 ### From Chrome Web Store
-*(Coming soon)*
+
+_(Coming soon)_
 
 ### Manual Installation (Developer Mode)
+
 1. Clone or download this repository
 2. Open Chrome and go to `chrome://extensions`
 3. Enable "Developer mode" (top right toggle)

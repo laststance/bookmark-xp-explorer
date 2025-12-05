@@ -13,7 +13,7 @@
  * Storage key for the default view mode preference
  * @type {string}
  */
-const STORAGE_KEY = 'defaultViewMode';
+const STORAGE_KEY = 'defaultViewMode'
 
 /**
  * Possible view mode values
@@ -22,8 +22,8 @@ const STORAGE_KEY = 'defaultViewMode';
  */
 const ViewMode = {
   FULLPAGE: 'fullpage',
-  POPUP: 'popup'
-};
+  POPUP: 'popup',
+}
 
 /**
  * URLs for extension pages
@@ -31,8 +31,8 @@ const ViewMode = {
  */
 const Pages = {
   FULLPAGE: 'fullpage/fullpage.html',
-  POPUP: 'popup/popup.html'
-};
+  POPUP: 'popup/popup.html',
+}
 
 /**
  * Applies the view mode preference by configuring the action popup behavior.
@@ -45,12 +45,12 @@ const Pages = {
 async function applyViewModePreference(mode) {
   if (mode === ViewMode.FULLPAGE) {
     // Remove popup so clicking icon triggers onClicked event
-    await chrome.action.setPopup({ popup: '' });
-    console.log('View mode: Fullpage (click opens new tab)');
+    await chrome.action.setPopup({ popup: '' })
+    console.log('View mode: Fullpage (click opens new tab)')
   } else {
     // Set popup URL for traditional popup behavior
-    await chrome.action.setPopup({ popup: Pages.POPUP });
-    console.log('View mode: Popup (click opens popup)');
+    await chrome.action.setPopup({ popup: Pages.POPUP })
+    console.log('View mode: Popup (click opens popup)')
   }
 }
 
@@ -61,9 +61,9 @@ async function applyViewModePreference(mode) {
  * @returns {Promise<void>}
  */
 async function loadAndApplyPreference() {
-  const result = await chrome.storage.local.get(STORAGE_KEY);
-  const mode = result[STORAGE_KEY] || ViewMode.FULLPAGE;
-  await applyViewModePreference(mode);
+  const result = await chrome.storage.local.get(STORAGE_KEY)
+  const mode = result[STORAGE_KEY] || ViewMode.FULLPAGE
+  await applyViewModePreference(mode)
 }
 
 /**
@@ -73,18 +73,18 @@ async function loadAndApplyPreference() {
  * @returns {Promise<void>}
  */
 async function openFullPage() {
-  const fullpageUrl = chrome.runtime.getURL(Pages.FULLPAGE);
+  const fullpageUrl = chrome.runtime.getURL(Pages.FULLPAGE)
 
   // Check if fullpage is already open
-  const tabs = await chrome.tabs.query({ url: fullpageUrl });
+  const tabs = await chrome.tabs.query({ url: fullpageUrl })
 
   if (tabs.length > 0) {
     // Focus existing tab
-    await chrome.tabs.update(tabs[0].id, { active: true });
-    await chrome.windows.update(tabs[0].windowId, { focused: true });
+    await chrome.tabs.update(tabs[0].id, { active: true })
+    await chrome.windows.update(tabs[0].windowId, { focused: true })
   } else {
     // Open new tab
-    await chrome.tabs.create({ url: fullpageUrl });
+    await chrome.tabs.create({ url: fullpageUrl })
   }
 }
 
@@ -97,47 +97,47 @@ async function openFullPage() {
  * Sets default preference on first install and opens fullpage.
  */
 chrome.runtime.onInstalled.addListener(async (details) => {
-  console.log('Bookmark XP Explorer installed:', details.reason);
+  console.log('Bookmark XP Explorer installed:', details.reason)
 
   if (details.reason === 'install') {
-    console.log('Welcome to Bookmark XP Explorer!');
+    console.log('Welcome to Bookmark XP Explorer!')
 
     // Set default preference to fullpage mode
-    await chrome.storage.local.set({ [STORAGE_KEY]: ViewMode.FULLPAGE });
+    await chrome.storage.local.set({ [STORAGE_KEY]: ViewMode.FULLPAGE })
 
     // Apply the preference immediately
-    await applyViewModePreference(ViewMode.FULLPAGE);
+    await applyViewModePreference(ViewMode.FULLPAGE)
 
     // Open fullpage on first install
-    await openFullPage();
+    await openFullPage()
   } else if (details.reason === 'update') {
     // On update, load existing preference or set new default
-    const result = await chrome.storage.local.get(STORAGE_KEY);
+    const result = await chrome.storage.local.get(STORAGE_KEY)
     if (!result[STORAGE_KEY]) {
       // Existing users: set default to fullpage (new feature)
-      await chrome.storage.local.set({ [STORAGE_KEY]: ViewMode.FULLPAGE });
+      await chrome.storage.local.set({ [STORAGE_KEY]: ViewMode.FULLPAGE })
     }
-    await loadAndApplyPreference();
+    await loadAndApplyPreference()
   }
-});
+})
 
 /**
  * Extension startup event handler.
  * Applies saved preference when browser starts.
  */
 chrome.runtime.onStartup.addListener(async () => {
-  console.log('Bookmark XP Explorer starting up...');
-  await loadAndApplyPreference();
-});
+  console.log('Bookmark XP Explorer starting up...')
+  await loadAndApplyPreference()
+})
 
 /**
  * Action icon clicked event handler.
  * Only fires when popup is disabled (fullpage mode).
  */
 chrome.action.onClicked.addListener(async (tab) => {
-  console.log('Action icon clicked, opening fullpage...');
-  await openFullPage();
-});
+  console.log('Action icon clicked, opening fullpage...')
+  await openFullPage()
+})
 
 /**
  * Keyboard shortcut handler.
@@ -145,27 +145,28 @@ chrome.action.onClicked.addListener(async (tab) => {
  */
 chrome.commands.onCommand.addListener(async (command) => {
   if (command === 'open-fullpage') {
-    await openFullPage();
+    await openFullPage()
   }
-});
+})
 
 /**
  * Message listener for communication with popup/settings pages.
  */
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.action === 'openFullPage') {
-    openFullPage().then(() => sendResponse({ success: true }));
-    return true; // Keep channel open for async response
+    openFullPage().then(() => sendResponse({ success: true }))
+    return true // Keep channel open for async response
   }
 
   if (message.action === 'updateViewMode') {
-    applyViewModePreference(message.mode)
-      .then(() => sendResponse({ success: true }));
-    return true; // Keep channel open for async response
+    applyViewModePreference(message.mode).then(() =>
+      sendResponse({ success: true }),
+    )
+    return true // Keep channel open for async response
   }
 
-  return false;
-});
+  return false
+})
 
 /**
  * Storage change listener.
@@ -174,31 +175,31 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
  */
 chrome.storage.onChanged.addListener((changes, namespace) => {
   if (namespace === 'local' && changes[STORAGE_KEY]) {
-    const newMode = changes[STORAGE_KEY].newValue;
-    console.log('Storage changed, applying new view mode:', newMode);
-    applyViewModePreference(newMode);
+    const newMode = changes[STORAGE_KEY].newValue
+    console.log('Storage changed, applying new view mode:', newMode)
+    applyViewModePreference(newMode)
   }
-});
+})
 
 // ============================================================================
 // Bookmark Event Logging (for debugging)
 // ============================================================================
 
 chrome.bookmarks.onCreated.addListener((id, bookmark) => {
-  console.log('Bookmark created:', bookmark.title);
-});
+  console.log('Bookmark created:', bookmark.title)
+})
 
 chrome.bookmarks.onRemoved.addListener((id, removeInfo) => {
-  console.log('Bookmark removed:', id);
-});
+  console.log('Bookmark removed:', id)
+})
 
 chrome.bookmarks.onChanged.addListener((id, changeInfo) => {
-  console.log('Bookmark changed:', changeInfo);
-});
+  console.log('Bookmark changed:', changeInfo)
+})
 
 chrome.bookmarks.onMoved.addListener((id, moveInfo) => {
-  console.log('Bookmark moved:', id);
-});
+  console.log('Bookmark moved:', id)
+})
 
 // Apply preference immediately when service worker loads
-loadAndApplyPreference();
+loadAndApplyPreference()

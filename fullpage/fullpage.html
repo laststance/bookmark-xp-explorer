@@ -1,209 +1,302 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <link rel="stylesheet" href="fullpage.css">
-  <title>Bookmark XP Explorer</title>
-</head>
-<body>
-  <div class="app">
-    <!-- Title Bar -->
-    <div class="title-bar">
-      <div class="title-bar-left">
-        <span class="title-bar-icon">📁</span>
-        <span class="title-bar-text">Bookmark XP Explorer</span>
-      </div>
-      <div class="title-bar-center">
-        <div class="view-mode-switcher">
-          <button class="view-mode-btn active" data-mode="single" title="Single View">
-            <span>▢</span>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="stylesheet" href="fullpage.css" />
+    <title>Bookmark XP Explorer</title>
+  </head>
+  <body>
+    <div class="app">
+      <!-- Title Bar -->
+      <div class="title-bar">
+        <div class="title-bar-left">
+          <span class="title-bar-icon">📁</span>
+          <span class="title-bar-text">Bookmark XP Explorer</span>
+        </div>
+        <div class="title-bar-center">
+          <div class="view-mode-switcher">
+            <button
+              class="view-mode-btn active"
+              data-mode="single"
+              title="Single View"
+            >
+              <span>▢</span>
+            </button>
+            <button class="view-mode-btn" data-mode="split" title="Split View">
+              <span>▢▢</span>
+            </button>
+          </div>
+        </div>
+        <div class="title-bar-right">
+          <button
+            class="settings-btn"
+            id="open-settings"
+            title="Settings"
+            aria-label="Open settings"
+          >
+            ⚙️
           </button>
-          <button class="view-mode-btn" data-mode="split" title="Split View">
-            <span>▢▢</span>
+        </div>
+      </div>
+
+      <!-- Main Container -->
+      <div class="main-container">
+        <!-- Left Sidebar: Folder Tree -->
+        <div class="sidebar">
+          <div class="sidebar-header">
+            <span class="sidebar-title">Folders</span>
+            <button
+              class="sidebar-toggle"
+              id="toggle-sidebar"
+              title="Toggle Sidebar"
+            >
+              ◀
+            </button>
+          </div>
+          <div class="folder-tree" id="folder-tree"></div>
+        </div>
+
+        <!-- Sidebar Resizer -->
+        <div class="sidebar-resizer" id="sidebar-resizer"></div>
+
+        <!-- Content Area (Single or Split) -->
+        <div class="content-area" id="content-area">
+          <!-- Pane 1 (Always visible) -->
+          <div class="explorer-pane" id="pane-1" data-pane="1">
+            <div class="pane-toolbar">
+              <div class="pane-nav">
+                <button class="pane-btn" data-action="back" title="Back">
+                  ◀
+                </button>
+                <button class="pane-btn" data-action="forward" title="Forward">
+                  ▶
+                </button>
+                <button class="pane-btn" data-action="up" title="Up">⬆</button>
+                <button class="pane-btn" data-action="refresh" title="Refresh">
+                  🔄
+                </button>
+                <button
+                  class="pane-btn"
+                  data-action="undo"
+                  title="Undo (Ctrl+Z)"
+                  disabled
+                >
+                  ↩️
+                </button>
+              </div>
+              <div class="pane-address">
+                <span class="address-icon">📁</span>
+                <div class="address-path" data-pane="1"></div>
+              </div>
+              <div class="pane-search">
+                <input
+                  type="text"
+                  class="search-input"
+                  placeholder="Search..."
+                  data-pane="1"
+                />
+              </div>
+              <div class="pane-actions">
+                <button
+                  class="pane-btn"
+                  data-action="new-folder"
+                  title="New Folder"
+                >
+                  📁+
+                </button>
+                <button
+                  class="pane-btn"
+                  data-action="new-bookmark"
+                  title="New Bookmark"
+                >
+                  🔖+
+                </button>
+              </div>
+            </div>
+            <div class="pane-content" data-pane="1"></div>
+            <div class="pane-status">
+              <span class="status-text" data-pane="1">Ready</span>
+              <span class="item-count" data-pane="1"></span>
+            </div>
+          </div>
+
+          <!-- Pane Splitter (visible in split mode) -->
+          <div class="pane-splitter" id="pane-splitter"></div>
+
+          <!-- Pane 2 (visible in split mode) -->
+          <div class="explorer-pane" id="pane-2" data-pane="2">
+            <div class="pane-toolbar">
+              <div class="pane-nav">
+                <button class="pane-btn" data-action="back" title="Back">
+                  ◀
+                </button>
+                <button class="pane-btn" data-action="forward" title="Forward">
+                  ▶
+                </button>
+                <button class="pane-btn" data-action="up" title="Up">⬆</button>
+                <button class="pane-btn" data-action="refresh" title="Refresh">
+                  🔄
+                </button>
+                <button
+                  class="pane-btn"
+                  data-action="undo"
+                  title="Undo (Ctrl+Z)"
+                  disabled
+                >
+                  ↩️
+                </button>
+              </div>
+              <div class="pane-address">
+                <span class="address-icon">📁</span>
+                <div class="address-path" data-pane="2"></div>
+              </div>
+              <div class="pane-search">
+                <input
+                  type="text"
+                  class="search-input"
+                  placeholder="Search..."
+                  data-pane="2"
+                />
+              </div>
+              <div class="pane-actions">
+                <button
+                  class="pane-btn"
+                  data-action="new-folder"
+                  title="New Folder"
+                >
+                  📁+
+                </button>
+                <button
+                  class="pane-btn"
+                  data-action="new-bookmark"
+                  title="New Bookmark"
+                >
+                  🔖+
+                </button>
+              </div>
+            </div>
+            <div class="pane-content" data-pane="2"></div>
+            <div class="pane-status">
+              <span class="status-text" data-pane="2">Ready</span>
+              <span class="item-count" data-pane="2"></span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Context Menu -->
+    <div class="context-menu" id="context-menu">
+      <div class="context-menu-item" data-action="undo">
+        <span class="menu-icon">↩️</span> Undo
+        <span class="menu-shortcut">Ctrl+Z</span>
+      </div>
+      <div class="context-menu-separator"></div>
+      <div class="context-menu-item" data-action="open">
+        <span class="menu-icon">🔗</span> Open
+      </div>
+      <div class="context-menu-item" data-action="open-new-tab">
+        <span class="menu-icon">📑</span> Open in New Tab
+      </div>
+      <div class="context-menu-item" data-action="open-other-pane">
+        <span class="menu-icon">↔️</span> Open in Other Pane
+      </div>
+      <div class="context-menu-separator"></div>
+      <div class="context-menu-item" data-action="copy">
+        <span class="menu-icon">📋</span> Copy
+      </div>
+      <div class="context-menu-item" data-action="paste">
+        <span class="menu-icon">📥</span> Paste
+      </div>
+      <div class="context-menu-separator"></div>
+      <div class="context-menu-item" data-action="rename">
+        <span class="menu-icon">✏️</span> Rename
+      </div>
+      <div class="context-menu-item" data-action="delete">
+        <span class="menu-icon">🗑️</span> Delete
+      </div>
+      <div class="context-menu-separator"></div>
+      <div class="context-menu-item" data-action="new-folder">
+        <span class="menu-icon">📁</span> New Folder
+      </div>
+      <div class="context-menu-item" data-action="new-bookmark">
+        <span class="menu-icon">🔖</span> New Bookmark
+      </div>
+    </div>
+
+    <!-- Dialogs -->
+    <div class="dialog-overlay" id="rename-dialog">
+      <div class="dialog">
+        <div class="dialog-header">
+          <span class="dialog-title">Rename</span>
+          <button class="dialog-close">✕</button>
+        </div>
+        <div class="dialog-body">
+          <input type="text" id="rename-input" class="dialog-input" />
+        </div>
+        <div class="dialog-footer">
+          <button class="dialog-btn primary" id="rename-ok">OK</button>
+          <button class="dialog-btn" id="rename-cancel">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="dialog-overlay" id="new-folder-dialog">
+      <div class="dialog">
+        <div class="dialog-header">
+          <span class="dialog-title">New Folder</span>
+          <button class="dialog-close">✕</button>
+        </div>
+        <div class="dialog-body">
+          <input
+            type="text"
+            id="new-folder-input"
+            class="dialog-input"
+            placeholder="Folder name"
+          />
+        </div>
+        <div class="dialog-footer">
+          <button class="dialog-btn primary" id="new-folder-ok">Create</button>
+          <button class="dialog-btn" id="new-folder-cancel">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="dialog-overlay" id="new-bookmark-dialog">
+      <div class="dialog">
+        <div class="dialog-header">
+          <span class="dialog-title">New Bookmark</span>
+          <button class="dialog-close">✕</button>
+        </div>
+        <div class="dialog-body">
+          <label class="dialog-label">Title</label>
+          <input
+            type="text"
+            id="new-bookmark-title"
+            class="dialog-input"
+            placeholder="Bookmark title"
+          />
+          <label class="dialog-label">URL</label>
+          <input
+            type="url"
+            id="new-bookmark-url"
+            class="dialog-input"
+            placeholder="https://..."
+          />
+        </div>
+        <div class="dialog-footer">
+          <button class="dialog-btn primary" id="new-bookmark-ok">
+            Create
           </button>
-        </div>
-      </div>
-      <div class="title-bar-right">
-        <span class="keyboard-hint">Ctrl+Shift+B</span>
-        <button class="settings-btn" id="open-settings" title="Settings" aria-label="Open settings">⚙️</button>
-      </div>
-    </div>
-
-    <!-- Main Container -->
-    <div class="main-container">
-      <!-- Left Sidebar: Folder Tree -->
-      <div class="sidebar">
-        <div class="sidebar-header">
-          <span class="sidebar-title">Folders</span>
-          <button class="sidebar-toggle" id="toggle-sidebar" title="Toggle Sidebar">◀</button>
-        </div>
-        <div class="folder-tree" id="folder-tree"></div>
-      </div>
-
-      <!-- Sidebar Resizer -->
-      <div class="sidebar-resizer" id="sidebar-resizer"></div>
-
-      <!-- Content Area (Single or Split) -->
-      <div class="content-area" id="content-area">
-        <!-- Pane 1 (Always visible) -->
-        <div class="explorer-pane" id="pane-1" data-pane="1">
-          <div class="pane-toolbar">
-            <div class="pane-nav">
-              <button class="pane-btn" data-action="back" title="Back">◀</button>
-              <button class="pane-btn" data-action="forward" title="Forward">▶</button>
-              <button class="pane-btn" data-action="up" title="Up">⬆</button>
-              <button class="pane-btn" data-action="refresh" title="Refresh">🔄</button>
-              <button class="pane-btn" data-action="undo" title="Undo (Ctrl+Z)" disabled>↩️</button>
-            </div>
-            <div class="pane-address">
-              <span class="address-icon">📁</span>
-              <div class="address-path" data-pane="1"></div>
-            </div>
-            <div class="pane-search">
-              <input type="text" class="search-input" placeholder="Search..." data-pane="1">
-            </div>
-            <div class="pane-actions">
-              <button class="pane-btn" data-action="new-folder" title="New Folder">📁+</button>
-              <button class="pane-btn" data-action="new-bookmark" title="New Bookmark">🔖+</button>
-            </div>
-          </div>
-          <div class="pane-content" data-pane="1"></div>
-          <div class="pane-status">
-            <span class="status-text" data-pane="1">Ready</span>
-            <span class="item-count" data-pane="1"></span>
-          </div>
-        </div>
-
-        <!-- Pane Splitter (visible in split mode) -->
-        <div class="pane-splitter" id="pane-splitter"></div>
-
-        <!-- Pane 2 (visible in split mode) -->
-        <div class="explorer-pane" id="pane-2" data-pane="2">
-          <div class="pane-toolbar">
-            <div class="pane-nav">
-              <button class="pane-btn" data-action="back" title="Back">◀</button>
-              <button class="pane-btn" data-action="forward" title="Forward">▶</button>
-              <button class="pane-btn" data-action="up" title="Up">⬆</button>
-              <button class="pane-btn" data-action="refresh" title="Refresh">🔄</button>
-              <button class="pane-btn" data-action="undo" title="Undo (Ctrl+Z)" disabled>↩️</button>
-            </div>
-            <div class="pane-address">
-              <span class="address-icon">📁</span>
-              <div class="address-path" data-pane="2"></div>
-            </div>
-            <div class="pane-search">
-              <input type="text" class="search-input" placeholder="Search..." data-pane="2">
-            </div>
-            <div class="pane-actions">
-              <button class="pane-btn" data-action="new-folder" title="New Folder">📁+</button>
-              <button class="pane-btn" data-action="new-bookmark" title="New Bookmark">🔖+</button>
-            </div>
-          </div>
-          <div class="pane-content" data-pane="2"></div>
-          <div class="pane-status">
-            <span class="status-text" data-pane="2">Ready</span>
-            <span class="item-count" data-pane="2"></span>
-          </div>
+          <button class="dialog-btn" id="new-bookmark-cancel">Cancel</button>
         </div>
       </div>
     </div>
-  </div>
 
-  <!-- Context Menu -->
-  <div class="context-menu" id="context-menu">
-    <div class="context-menu-item" data-action="undo">
-      <span class="menu-icon">↩️</span> Undo
-      <span class="menu-shortcut">Ctrl+Z</span>
-    </div>
-    <div class="context-menu-separator"></div>
-    <div class="context-menu-item" data-action="open">
-      <span class="menu-icon">🔗</span> Open
-    </div>
-    <div class="context-menu-item" data-action="open-new-tab">
-      <span class="menu-icon">📑</span> Open in New Tab
-    </div>
-    <div class="context-menu-item" data-action="open-other-pane">
-      <span class="menu-icon">↔️</span> Open in Other Pane
-    </div>
-    <div class="context-menu-separator"></div>
-    <div class="context-menu-item" data-action="copy">
-      <span class="menu-icon">📋</span> Copy
-    </div>
-    <div class="context-menu-item" data-action="paste">
-      <span class="menu-icon">📥</span> Paste
-    </div>
-    <div class="context-menu-separator"></div>
-    <div class="context-menu-item" data-action="rename">
-      <span class="menu-icon">✏️</span> Rename
-    </div>
-    <div class="context-menu-item" data-action="delete">
-      <span class="menu-icon">🗑️</span> Delete
-    </div>
-    <div class="context-menu-separator"></div>
-    <div class="context-menu-item" data-action="new-folder">
-      <span class="menu-icon">📁</span> New Folder
-    </div>
-    <div class="context-menu-item" data-action="new-bookmark">
-      <span class="menu-icon">🔖</span> New Bookmark
-    </div>
-  </div>
+    <!-- Toast Notifications -->
+    <div class="toast-container" id="toast-container"></div>
 
-  <!-- Dialogs -->
-  <div class="dialog-overlay" id="rename-dialog">
-    <div class="dialog">
-      <div class="dialog-header">
-        <span class="dialog-title">Rename</span>
-        <button class="dialog-close">✕</button>
-      </div>
-      <div class="dialog-body">
-        <input type="text" id="rename-input" class="dialog-input">
-      </div>
-      <div class="dialog-footer">
-        <button class="dialog-btn primary" id="rename-ok">OK</button>
-        <button class="dialog-btn" id="rename-cancel">Cancel</button>
-      </div>
-    </div>
-  </div>
-
-  <div class="dialog-overlay" id="new-folder-dialog">
-    <div class="dialog">
-      <div class="dialog-header">
-        <span class="dialog-title">New Folder</span>
-        <button class="dialog-close">✕</button>
-      </div>
-      <div class="dialog-body">
-        <input type="text" id="new-folder-input" class="dialog-input" placeholder="Folder name">
-      </div>
-      <div class="dialog-footer">
-        <button class="dialog-btn primary" id="new-folder-ok">Create</button>
-        <button class="dialog-btn" id="new-folder-cancel">Cancel</button>
-      </div>
-    </div>
-  </div>
-
-  <div class="dialog-overlay" id="new-bookmark-dialog">
-    <div class="dialog">
-      <div class="dialog-header">
-        <span class="dialog-title">New Bookmark</span>
-        <button class="dialog-close">✕</button>
-      </div>
-      <div class="dialog-body">
-        <label class="dialog-label">Title</label>
-        <input type="text" id="new-bookmark-title" class="dialog-input" placeholder="Bookmark title">
-        <label class="dialog-label">URL</label>
-        <input type="url" id="new-bookmark-url" class="dialog-input" placeholder="https://...">
-      </div>
-      <div class="dialog-footer">
-        <button class="dialog-btn primary" id="new-bookmark-ok">Create</button>
-        <button class="dialog-btn" id="new-bookmark-cancel">Cancel</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Toast Notifications -->
-  <div class="toast-container" id="toast-container"></div>
-
-  <script src="fullpage.js"></script>
-</body>
+    <script src="fullpage.js"></script>
+  </body>
 </html>
