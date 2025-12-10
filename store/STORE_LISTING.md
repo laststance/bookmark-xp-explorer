@@ -23,7 +23,6 @@ Bookmark XP Explorer brings back the nostalgic XP Explorer interface to manage y
 
 FEATURES:
 
-★ Classic XP Look
 - Familiar folder tree navigation
 - Address bar with breadcrumb path
 - Status bar with item count
@@ -69,11 +68,11 @@ Perfect for users who miss the classic file explorer experience and want a power
 
 ### Screenshots (Need to create)
 
-- [ ] Screenshot 1: Main popup view (1280x800 or 640x400)
+- [ ] Screenshot 1: Split view mode (1280x800 or 640x400)
 - [ ] Screenshot 2: Full-page view single pane
-- [ ] Screenshot 3: Split view mode
-- [ ] Screenshot 4: Context menu / drag-drop
-- [ ] Screenshot 5: Search functionality
+- [ ] Screenshot 3: Main popup view
+- [ ] Screenshot 4: Context menu
+- [ ] Screenshot 5: Settings
 
 ### Promotional Images (Optional but recommended)
 
