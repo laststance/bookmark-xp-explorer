@@ -16,6 +16,12 @@
   --toggle-bg: #ccc;
   --toggle-active: #0078d4;
   --border-radius: 12px;
+  /* Header gradient color */
+  --color-header-bg: linear-gradient(
+    135deg,
+    rgba(0, 120, 212, 0.9),
+    rgba(0, 90, 158, 0.9)
+  );
 }
 
 * {
@@ -49,11 +55,7 @@ body {
 }
 
 .settings-header {
-  background: linear-gradient(
-    135deg,
-    rgba(0, 120, 212, 0.9),
-    rgba(0, 90, 158, 0.9)
-  );
+  background: var(--color-header-bg);
   color: white;
   padding: 24px;
   text-align: center;

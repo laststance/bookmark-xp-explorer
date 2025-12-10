@@ -81,6 +81,11 @@
   --color-success: oklch(0.55 0.15 145);
   --color-error: oklch(0.55 0.2 25);
   --color-warning: oklch(0.7 0.15 70);
+  --color-header-bg: linear-gradient(
+    135deg,
+    rgba(0, 120, 212, 0.9),
+    rgba(0, 90, 158, 0.9)
+  );
 
   /* ========================================
      Design Tokens - Spacing (4px Grid)
@@ -327,11 +332,7 @@ body {
   justify-content: space-between;
   height: 52px;
   padding: 0 var(--space-5);
-  background: linear-gradient(
-    180deg,
-    var(--color-titlebar-start),
-    var(--color-titlebar-end)
-  );
+  background: var(--color-header-bg);
   box-shadow: var(--shadow-md);
   user-select: none;
   flex-shrink: 0;
