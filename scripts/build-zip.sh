@@ -33,8 +33,22 @@ zip -r "${OUTPUT_DIR}/${ZIP_NAME}" . \
   -x "scripts/*" \
   -x "*.md" \
   -x "*.sh" \
-  -x "{popup,background,icons}/*" \
-  -x "*.zip"
+  -x "*.zip" \
+  -x "tests/*" \
+  -x "playwright.config.js" \
+  -x "playwright-report/*" \
+  -x "test-results/*" \
+  -x "package.json" \
+  -x "pnpm-lock.yaml" \
+  -x ".prettierrc" \
+  -x ".prettierignore" \
+  -x "eslint.config.js" \
+  -x ".serena/*" \
+  -x ".husky/*" \
+  -x ".playwright-mcp/*" \
+  -x ".qodo/*" \
+  -x "PROJECT_INDEX.json" \
+  -x "{popup,background,icons}/*"
 
 echo ""
 echo "Created: ${OUTPUT_DIR}/${ZIP_NAME}"
