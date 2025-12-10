@@ -74,12 +74,6 @@ Perfect for users who miss the classic file explorer experience and want a power
 - [ ] Screenshot 4: Context menu
 - [ ] Screenshot 5: Settings
 
-### Promotional Images (Optional but recommended)
-
-- [ ] Small promo tile: 440x280 px
-- [ ] Large promo tile: 920x680 px (for featured placement)
-- [ ] Marquee promo tile: 1400x560 px
-
 ---
 
 ## Store URLs (After publishing)
