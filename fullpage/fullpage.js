@@ -631,6 +631,141 @@ function setupDragAndDrop() {
   let lastDropTarget = null
   let lastDropPosition = null // 'before' | 'after' | 'into'
 
+  // ============================================
+  // Auto-scroll configuration and state
+  // ============================================
+  const SCROLL_EDGE_SIZE = 60 // Distance from edge to trigger scroll (px)
+  const MIN_SCROLL_SPEED = 2 // Minimum scroll speed (px/frame)
+  const MAX_SCROLL_SPEED = 15 // Maximum scroll speed (px/frame)
+
+  let autoScrollState = {
+    animationId: null,
+    direction: null, // 'up' | 'down' | null
+    container: null,
+    speed: 0,
+  }
+
+  /**
+   * Find the scrollable container at the given coordinates
+   * @param {number} x - Client X coordinate
+   * @param {number} y - Client Y coordinate
+   * @returns {Element|null} - Scrollable container or null
+   */
+  function findScrollableContainer(x, y) {
+    const elements = document.elementsFromPoint(x, y)
+    for (const el of elements) {
+      // Check if element can scroll vertically
+      if (el.scrollHeight > el.clientHeight) {
+        const style = getComputedStyle(el)
+        if (style.overflowY === 'auto' || style.overflowY === 'scroll') {
+          return el
+        }
+      }
+    }
+    return null
+  }
+
+  /**
+   * Calculate scroll speed based on distance from edge
+   * Closer to edge = faster scrolling
+   * @param {number} distance - Distance from edge in pixels
+   * @returns {number} - Scroll speed in pixels per frame
+   */
+  function calculateScrollSpeed(distance) {
+    const normalized = Math.max(0, Math.min(1, distance / SCROLL_EDGE_SIZE))
+    return MAX_SCROLL_SPEED - normalized * (MAX_SCROLL_SPEED - MIN_SCROLL_SPEED)
+  }
+
+  /**
+   * Start auto-scroll animation
+   * @param {Element} container - Scrollable container
+   * @param {'up'|'down'} direction - Scroll direction
+   * @param {number} speed - Scroll speed in pixels per frame
+   */
+  function startAutoScroll(container, direction, speed) {
+    // If already scrolling in same direction with same container, just update speed
+    if (
+      autoScrollState.animationId &&
+      autoScrollState.container === container &&
+      autoScrollState.direction === direction
+    ) {
+      autoScrollState.speed = speed
+      return
+    }
+
+    // Stop any existing animation
+    if (autoScrollState.animationId) {
+      cancelAnimationFrame(autoScrollState.animationId)
+    }
+
+    autoScrollState = { container, direction, speed, animationId: null }
+
+    function scroll() {
+      if (!autoScrollState.container) return
+
+      const delta =
+        autoScrollState.direction === 'up'
+          ? -autoScrollState.speed
+          : autoScrollState.speed
+      autoScrollState.container.scrollTop += delta
+
+      autoScrollState.animationId = requestAnimationFrame(scroll)
+    }
+
+    autoScrollState.animationId = requestAnimationFrame(scroll)
+  }
+
+  /**
+   * Stop auto-scroll animation
+   */
+  function stopAutoScroll() {
+    if (autoScrollState.animationId) {
+      cancelAnimationFrame(autoScrollState.animationId)
+    }
+    autoScrollState = {
+      animationId: null,
+      direction: null,
+      container: null,
+      speed: 0,
+    }
+  }
+
+  /**
+   * Handle auto-scroll based on mouse position during drag
+   * @param {DragEvent} e - Drag event
+   */
+  function handleAutoScroll(e) {
+    const container = findScrollableContainer(e.clientX, e.clientY)
+    if (!container) {
+      stopAutoScroll()
+      return
+    }
+
+    const rect = container.getBoundingClientRect()
+    const mouseY = e.clientY
+
+    // Check top edge - scroll up
+    const distanceFromTop = mouseY - rect.top
+    if (distanceFromTop < SCROLL_EDGE_SIZE && container.scrollTop > 0) {
+      const speed = calculateScrollSpeed(distanceFromTop)
+      startAutoScroll(container, 'up', speed)
+      return
+    }
+
+    // Check bottom edge - scroll down
+    const distanceFromBottom = rect.bottom - mouseY
+    const canScrollDown =
+      container.scrollTop < container.scrollHeight - container.clientHeight
+    if (distanceFromBottom < SCROLL_EDGE_SIZE && canScrollDown) {
+      const speed = calculateScrollSpeed(distanceFromBottom)
+      startAutoScroll(container, 'down', speed)
+      return
+    }
+
+    // Not in scroll zone - stop any active scrolling
+    stopAutoScroll()
+  }
+
   /**
    * Find a valid drop target near the given coordinates
    * @param {number} x - Client X coordinate
@@ -739,6 +874,9 @@ function setupDragAndDrop() {
   })
 
   document.addEventListener('dragend', () => {
+    // Stop auto-scroll when drag ends
+    stopAutoScroll()
+
     document
       .querySelectorAll('.dragging, .drag-over, .drop-before, .drop-after')
       .forEach((el) => {
@@ -793,6 +931,9 @@ function setupDragAndDrop() {
       lastDropTarget = null
       lastDropPosition = null
     }
+
+    // Handle auto-scroll when near container edges
+    handleAutoScroll(e)
   })
 
   document.addEventListener('dragleave', (e) => {
