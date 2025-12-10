@@ -1233,7 +1233,12 @@ async function performSearch(query) {
   elements.contentView.innerHTML = ''
   elements.contentView.classList.add('search-results')
 
-  const results = await chrome.bookmarks.search(query)
+  const allResults = await chrome.bookmarks.search(query)
+  // Filter to only match titles, not URLs
+  const queryLower = query.toLowerCase()
+  const results = allResults.filter(
+    (node) => node.title && node.title.toLowerCase().includes(queryLower),
+  )
 
   if (results.length === 0) {
     elements.contentView.innerHTML = `

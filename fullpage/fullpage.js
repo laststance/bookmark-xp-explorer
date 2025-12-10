@@ -1625,7 +1625,12 @@ async function performSearch(paneNum, query) {
   const content = document.querySelector(
     `.pane-content[data-pane="${paneNum}"]`,
   )
-  const results = await chrome.bookmarks.search(query)
+  const allResults = await chrome.bookmarks.search(query)
+  // Filter to only match titles, not URLs
+  const queryLower = query.toLowerCase()
+  const results = allResults.filter(
+    (node) => node.title && node.title.toLowerCase().includes(queryLower),
+  )
 
   content.innerHTML = ''
 
